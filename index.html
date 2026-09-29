@@ -761,134 +761,176 @@
             return 0;
         }
 
-        // --- Core Base Converter Logic ---
-        function updateConverter() {
-            const val = inputValue.value.trim().toUpperCase();
-            const sBase = parseInt(sourceBase.value);
-            const tBase = parseInt(targetBase.value);
-            const maxPrec = parseInt(precisionSelect.value);
+// Render Step-by-Step Any-Base Digit Long Division (÷) - Authentic Long Division Graphic
+        function renderAnyBaseLongDivision(dividendStr, divisorStr, base, precision) {
+            arithLongDivBox.innerHTML = "";
 
-            charCount.textContent = `${val.length} chars`;
-            targetRadixBadge.textContent = `Base ${tBase}`;
+            // Normalize decimals by shifting decimal point to make divisor an integer
+            const divParts = dividendStr.split('.');
+            const divisorParts = divisorStr.split('.');
 
-            if (!isValidRadixNumber(val, sBase)) {
-                inputValue.classList.add('invalid-input');
-                errorMessage.classList.remove('hidden');
-                errorText.textContent = `Invalid character for Base ${sBase}! Allowed: [0-${RADIX_CHARS[sBase-1]}]`;
-                outputValue.textContent = "--";
-                arrowSolutionContainer.innerHTML = `<div class="text-rose-400 p-2">Error: Invalid Digits in Input</div>`;
-                positionalSumBox.classList.add('hidden');
-                longDivisionContainer.innerHTML = "";
-                return;
-            }
+            const divFracLen = divParts.length > 1 ? divParts[1].length : 0;
+            const divisorFracLen = divisorParts.length > 1 ? divisorParts[1].length : 0;
 
-            inputValue.classList.remove('invalid-input');
-            errorMessage.classList.add('hidden');
+            const shift = Math.max(divFracLen, divisorFracLen);
 
-            if (!val) {
-                outputValue.textContent = "--";
-                arrowSolutionContainer.innerHTML = "";
-                positionalSumBox.classList.add('hidden');
-                longDivisionContainer.innerHTML = "";
-                return;
-            }
-
-            // Perform Base Conversion
-            const decEquivalent = radixToDecimal(val, sBase);
-            const targetResult = decimalToRadix(decEquivalent, tBase, maxPrec);
-            outputValue.textContent = targetResult;
-
-            // Generate Step 1: Positional Arrow Tree
-            renderPositionalTree(val, sBase);
-
-            // Generate Step 2: Fractional Long Division Steps
-            renderLongDivisionSteps(decEquivalent, tBase, maxPrec);
-        }
-
-        // Render Positional Product Arrow Tree
-        function renderPositionalTree(valStr, base) {
-            arrowSolutionContainer.innerHTML = "";
-            verticalPositionalSumList.innerHTML = "";
+            let normDividend = dividendStr.replace('.', '');
+            if (shift > divFracLen) normDividend += '0'.repeat(shift - divFracLen);
             
-            const parts = valStr.split('.');
-            const intPart = parts[0] || '0';
-            const fracPart = parts[1] || '';
+            let normDivisor = divisorStr.replace('.', '');
+            if (shift > divisorFracLen) normDivisor += '0'.repeat(shift - divisorFracLen);
 
-            let positionalItems = [];
-            let totalDecSum = 0;
+            normDividend = normDividend.replace(/^0+/, '') || '0';
+            normDivisor = normDivisor.replace(/^0+/, '') || '0';
 
-            // Integer Powers
-            for (let i = 0; i < intPart.length; i++) {
-                const digitChar = intPart[i];
-                const digitVal = RADIX_CHARS.indexOf(digitChar);
-                const exp = intPart.length - 1 - i;
-                const weight = Math.pow(base, exp);
-                const prod = digitVal * weight;
-                totalDecSum += prod;
+            // Position of decimal point in normalized dividend
+            const originalIntLen = (divParts[0] || '0').replace(/^0+/, '').length || 1;
+            const decimalInsertPos = originalIntLen + (shift - divisorFracLen);
 
-                positionalItems.push({
-                    digit: digitChar,
-                    digitVal: digitVal,
-                    exp: exp,
-                    weight: weight,
-                    product: prod,
-                    expr: `${digitChar} × ${base}<sup>${exp}</sup> = ${digitVal} × ${weight}`
-                });
+            // Compute exact result in source base to align quotient properly
+            const dec1 = radixToDecimal(dividendStr, base);
+            const dec2 = radixToDecimal(divisorStr, base);
+            const fullQuotient = decimalToRadix(dec1 / dec2, base, precision);
+
+            // Build total digits string including precision zeros
+            let totalDigitsStr = normDividend;
+            if (totalDigitsStr.length < decimalInsertPos) {
+                totalDigitsStr = totalDigitsStr.padEnd(decimalInsertPos, '0');
             }
+            totalDigitsStr += '0'.repeat(precision);
 
-            // Fractional Powers
-            for (let i = 0; i < fracPart.length; i++) {
-                const digitChar = fracPart[i];
-                const digitVal = RADIX_CHARS.indexOf(digitChar);
-                const exp = -(i + 1);
-                const weight = Math.pow(base, exp);
-                const prod = digitVal * weight;
-                totalDecSum += prod;
+            let steps = [];
+            let currentRem = "";
 
-                positionalItems.push({
-                    digit: digitChar,
-                    digitVal: digitVal,
-                    exp: exp,
-                    weight: weight,
-                    product: prod,
-                    expr: `${digitChar} × ${base}<sup>${exp}</sup> = ${digitVal} × ${weight.toFixed(4)}`
-                });
-            }
+            for (let i = 0; i < totalDigitsStr.length; i++) {
+                currentRem += totalDigitsStr[i];
+                currentRem = currentRem.replace(/^0+/, '') || '0';
 
-            // Build Arrow Cards
-            positionalItems.forEach((item, idx) => {
-                const card = document.createElement('div');
-                card.className = "arrow-step-card bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs";
-                card.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <span class="w-6 h-6 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-[10px]">
-                            ${idx + 1}
-                        </span>
-                        <div>
-                            <span class="text-cyan-300 font-bold">${item.expr}</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-slate-500"><i class="fa-solid fa-arrow-right-long"></i></span>
-                        <span class="revealed-val font-bold text-amber-400 min-w-[60px] text-right">???</span>
-                    </div>
-                `;
-
-                card.addEventListener('click', () => {
-                    card.classList.toggle('active-revealed');
-                    const valSpan = card.querySelector('.revealed-val');
-                    if (card.classList.contains('active-revealed')) {
-                        valSpan.textContent = item.product;
-                        valSpan.classList.remove('text-amber-400');
-                        valSpan.classList.add('text-emerald-400');
+                // Find largest digit q in base such that q * normDivisor <= currentRem
+                let maxQ = 0;
+                for (let q = 1; q < base; q++) {
+                    const qChar = RADIX_CHARS[q];
+                    const prod = multiplyBaseStrings(normDivisor, qChar, base);
+                    if (compareBaseStrings(prod, currentRem, base) <= 0) {
+                        maxQ = q;
                     } else {
-                        valSpan.textContent = "???";
-                        valSpan.classList.remove('text-emerald-400');
-                        valSpan.classList.add('text-amber-400');
+                        break;
                     }
-                });
+                }
 
-                arrowSolutionContainer.appendChild(card);
+                const qChar = RADIX_CHARS[maxQ];
+
+                if (maxQ > 0 || steps.length > 0) {
+                    const prodStr = multiplyBaseStrings(normDivisor, qChar, base);
+                    const newRem = subtractBaseStrings(currentRem, prodStr, base);
+
+                    steps.push({
+                        broughtDown: totalDigitsStr[i],
+                        currentRem: currentRem,
+                        qChar: qChar,
+                        prodStr: prodStr,
+                        remainder: newRem
+                    });
+
+                    currentRem = newRem === '0' ? '' : newRem;
+                }
+
+                if (i >= decimalInsertPos && currentRem === '' && parseBaseInt(totalDigitsStr.slice(i+1), base) === 0n) {
+                    break;
+                }
+            }
+
+            // Display string for the dividend under the roof line
+            let dividendDisplay = normDividend;
+            if (decimalInsertPos < dividendDisplay.length) {
+                dividendDisplay = dividendDisplay.slice(0, decimalInsertPos) + '.' + dividendDisplay.slice(decimalInsertPos);
+            } else if (decimalInsertPos > dividendDisplay.length) {
+                dividendDisplay = dividendDisplay.padEnd(decimalInsertPos, '0');
+            }
+
+            // --- Build Long Division Grid / Table Alignment ---
+            let html = `<div class="space-y-4 font-mono text-xs">`;
+            
+            // Header Info
+            html += `<div class="text-xs text-cyan-400 font-bold border-b border-slate-800 pb-2 flex justify-between items-center">
+                <span>Long Division Engine [Base ${base}]</span>
+                <span class="text-amber-300">Quotient: ${fullQuotient}</span>
+            </div>`;
+
+            html += `<div class="overflow-x-auto py-2 flex justify-center">`;
+            html += `<table class="long-div-table">`;
+
+            // Row 1: Quotient Line (Aligned with dividend digits below)
+            html += `<tr>`;
+            html += `<td></td>`; // Divisor spacer
+            html += `<td></td>`; // Bracket spacer
+            
+            // Render quotient aligned digit-by-digit with dividendDisplay
+            const qParts = fullQuotient.split('.');
+            const divPartsDisp = dividendDisplay.split('.');
+            const qIntStr = qParts[0].padStart(divPartsDisp[0].length, '0');
+            const qFracStr = qParts[1] || '';
+            const alignedQuotient = qIntStr + (divPartsDisp.length > 1 ? '.' + qFracStr : '');
+
+            for (let c = 0; c < alignedQuotient.length; c++) {
+                html += `<td class="text-emerald-400 font-extrabold text-sm glow-green">${alignedQuotient[c]}</td>`;
+            }
+            html += `</tr>`;
+
+            // Row 2: Divisor | Roof over Dividend
+            html += `<tr>`;
+            html += `<td class="text-cyan-300 font-bold pr-1">${normDivisor}</td>`;
+            html += `<td class="div-bracket text-cyan-400 font-bold"></td>`;
+
+            for (let c = 0; c < dividendDisplay.length; c++) {
+                html += `<td class="div-roof text-cyan-300 font-bold">${dividendDisplay[c]}</td>`;
+            }
+            html += `</tr>`;
+
+            // Step Rows
+            steps.forEach((st, idx) => {
+                // Subtraction Row
+                html += `<tr>`;
+                html += `<td></td><td></td>`;
+                const indent = Math.max(0, idx);
+                for (let s = 0; s < indent; s++) html += `<td></td>`;
+                html += `<td class="text-rose-400 text-right">-</td>`;
+                
+                for (let p = 0; p < st.prodStr.length; p++) {
+                    html += `<td class="minus-row text-rose-300 font-semibold">${st.prodStr[p]}</td>`;
+                }
+                html += `</tr>`;
+
+                // Remainder Row
+                html += `<tr>`;
+                html += `<td></td><td></td>`;
+                for (let s = 0; s < indent; s++) html += `<td></td>`;
+                html += `<td></td>`;
+                
+                for (let r = 0; r < st.remainder.length; r++) {
+                    html += `<td class="text-amber-300 font-bold">${st.remainder[r]}</td>`;
+                }
+                html += `</tr>`;
+            });
+
+            html += `</table>`;
+            html += `</div>`;
+
+            // Itemized Step-by-Step Explanation List
+            html += `<div class="space-y-1.5 pt-3 border-t border-slate-800 text-xs">`;
+            html += `<div class="text-slate-400 font-bold uppercase tracking-wider mb-1">Step-by-Step Breakdown:</div>`;
+            
+            steps.forEach((st, idx) => {
+                html += `<div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex justify-between items-center">
+                    <span><b class="text-cyan-400">Step ${idx + 1}:</b> Divisor <span class="text-cyan-300">${normDivisor}</span> fits into <span class="text-amber-300">${st.currentRem}</span> → <b class="text-emerald-400">${st.qChar}</b> time(s)</span>
+                    <span class="text-slate-400 font-mono">(${normDivisor} × ${st.qChar} = ${st.prodStr} | Rem: <b class="text-amber-300">${st.remainder}</b>)</span>
+                </div>`;
+            });
+
+            html += `</div></div>`;
+
+            arithLongDivBox.innerHTML = html;
+        }
 
                 // Vertical Sum List
                 const sumRow = document.createElement('div');
