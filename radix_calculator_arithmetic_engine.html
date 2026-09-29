@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radix Circuit - Multi-Base Converter & Arithmetic Engine</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Orbitron & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-dark: #050811;
+            --panel-bg: rgba(11, 17, 31, 0.85);
+            --neon-cyan: #00f3ff;
+            --neon-green: #00ff88;
+            --neon-amber: #ffb700;
+            --neon-magenta: #ff0055;
+            --border-glow: rgba(0, 243, 255, 0.25);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'JetBrains Mono', monospace;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 243, 255, 0.08), transparent 60%),
+                radial-gradient(circle at 80% 100%, rgba(0, 255, 136, 0.05), transparent 50%),
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+        }
+
+        h1, h2, h3, .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Glassmorphism Circuit Panel */
+        .circuit-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(0, 243, 255, 0.03);
+            position: relative;
+        }
+
+        .circuit-panel::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 15%;
+            right: 15%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+        }
+
+        /* Glowing Text Effects */
+        .glow-cyan { text-shadow: 0 0 10px rgba(0, 243, 255, 0.6); }
+        .glow-green { text-shadow: 0 0 10px rgba(0, 255, 136, 0.6); }
+        .glow-amber { text-shadow: 0 0 10px rgba(255, 183, 0, 0.6); }
+        .glow-magenta { text-shadow: 0 0 10px rgba(255, 0, 85, 0.6); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #070b14; }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+            border: 1px solid var(--neon-cyan);
+        }
+
+        /* Animated Pulse Lights */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.9; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.1); }
+        }
+
+        .circuit-node {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .circuit-node.active-cyan {
+            background-color: var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        .circuit-node.active-amber {
+            background-color: var(--neon-amber);
+            box-shadow: 0 0 8px var(--neon-amber);
+            animation: pulse-glow 2.5s infinite ease-in-out;
+        }
+
+        /* Background Animated Circuit SVG Overlay */
+        .circuit-svg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.12;
+        }
+
+        /* Inputs & Select Elements */
+        input, select {
+            background: rgba(8, 13, 24, 0.85) !important;
+            border: 1px solid rgba(0, 243, 255, 0.3) !important;
+            color: #00f3ff !important;
+            transition: all 0.25s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none !important;
+            border-color: var(--neon-cyan) !important;
+            box-shadow: 0 0 14px rgba(0, 243, 255, 0.4) !important;
+        }
+
+        input.invalid-input {
+            border-color: var(--neon-magenta) !important;
+            box-shadow: 0 0 14px rgba(255, 0, 85, 0.5) !important;
+            color: #ff4d7d !important;
+        }
+
+        /* Buttons & Tabs */
+        .tab-btn {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--neon-cyan);
+            color: #00f3ff;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .tab-btn.active-tab {
+            background: rgba(0, 243, 255, 0.15);
+            border-color: var(--neon-cyan);
+            color: #00f3ff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.35);
+        }
+
+        .preset-btn {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover, .preset-btn.active-preset {
+            background: rgba(0, 243, 255, 0.2);
+            border-color: var(--neon-cyan);
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
+        /* Toast Popup */
+        #toast {
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative flex flex-col justify-between p-3 md:p-6 text-slate-200">
+
+    <!-- Background SVG Circuit Lines -->
+    <svg class="circuit-svg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <path d="M 50 0 L 50 200 L 200 350 L 200 600" stroke="#00f3ff" stroke-width="1.5" fill="none" stroke-dasharray="8 4"/>
+        <path d="M 95% 0 L 95% 300 L 85% 450 L 85% 900" stroke="#00ff88" stroke-width="1.5" fill="none" stroke-dasharray="6 6"/>
+        <path d="M 0 500 L 300 500 L 450 650" stroke="#ffb700" stroke-width="1" fill="none"/>
+        <circle cx="200" cy="350" r="4" fill="#00f3ff"/>
+        <circle cx="85%" cy="450" r="4" fill="#00ff88"/>
+        <circle cx="300" cy="500" r="4" fill="#ffb700"/>
+    </svg>
+
+    <div class="relative z-10 max-w-6xl mx-auto w-full space-y-5">
+
+        <!-- Top Header Bar -->
+        <header class="flex flex-col md:flex-row items-center justify-between border-b border-cyan-900/50 pb-4 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400">
+                    <i class="fa-solid fa-microchip text-2xl md:text-3xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-green-400 glow-cyan">
+                        RADIX<span class="text-amber-400">::</span>ENGINE
+                    </h1>
+                    <p class="text-xs text-slate-400 font-mono">Arbitrary Floating-Point Radix Converter & Arithmetic Engine [Bases 2-36]</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Precision Control Dropdown -->
+                <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-mono">
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    <label for="precisionSelect" class="text-slate-400">Dec. Precision:</label>
+                    <select id="precisionSelect" class="bg-slate-950 text-cyan-400 rounded px-1.5 py-0.5 border border-cyan-900 focus:outline-none">
+                        <option value="4">4 Places</option>
+                        <option value="8" selected>8 Places</option>
+                        <option value="12">12 Places</option>
+                        <option value="16">16 Places</option>
+                    </select>
+                </div>
+
+                <!-- Status Indicator -->
+                <div class="hidden sm:flex items-center gap-2 text-xs font-mono bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <span class="circuit-node active-cyan"></span>
+                    <span class="text-slate-400">RADIX:</span>
+                    <span class="text-emerald-400 font-semibold">ACTIVE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Mode Tabs -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+            <div class="flex gap-2 w-full sm:w-auto">
+                <button id="tabConverter" class="tab-btn active-tab flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-left"></i> Radix Base Converter
+                </button>
+                <button id="tabArithmetic" class="tab-btn flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> Base Arithmetic Engine
+                </button>
+            </div>
+
+            <!-- Quick Preset Samples Button -->
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button id="loadPresetSampleBtn" class="px-3 py-1.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 text-amber-300 text-xs font-mono transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Load Floating-Point Example
+                </button>
+            </div>
+        </div>
+
+        <!-- MODE 1: SINGLE BASE CONVERTER VIEW -->
+        <div id="converterView" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left Column: Input and Selectors -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <div class="circuit-panel rounded-2xl p-5 md:p-6 space-y-5">
+                    
+                    <!-- Input Value -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label for="inputValue" class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                                <i class="fa-solid fa-terminal text-xs"></i> Number / String Input
+                            </label>
+                            <span id="charCount" class="text-xs text-slate-500 font-mono">0 chars</span>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="inputValue" placeholder="e.g. 1011.101, A3F.8B, 1Z.A, 3.1415..." 
+                                class="w-full px-4 py-3.5 rounded-xl font-mono text-lg md:text-xl tracking-wide placeholder-slate-600 focus:outline-none"
+                                value="1011010.101">
+                            <button id="clearInputBtn" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 p-1.5 transition-colors" title="Clear Input">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div id="errorMessage" class="hidden text-xs text-rose-400 font-mono flex items-center gap-1.5 mt-1">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span id="errorText">Invalid digit for selected source base!</span>
+                        </div>
+                    </div>
+
+                    <!-- Base Selectors Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-11 gap-3 items-center">
+                        <!-- Source Base -->
+                        <div class="md:col-span-5 space-y-1.5">
+                            <label for="sourceBase" class="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">
+                                <span class="circuit-node active-cyan"></span> Source Radix
+                            </label>
+                            <select id="sourceBase" class="w-full px-3 py-2.5 rounded-lg text-sm font-mono cursor-pointer">
+                                <!-- Dynamically populated JS -->
+                            </select>
+                        </div>
+
+                        <!-- Swap Button -->
+                        <div class="md:col-span-1 flex justify-center items-end py-1">
+                            <button id="swapBasesBtn" class="p-3 rounded-xl bg-slate-800/80 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-400 hover:text-white hover:border-cyan-400 transition-all shadow-md group hover:rotate-180 duration-300" title="Swap Source & Target Bases">
+                                <i class="fa-solid fa-arrows-rotate text-sm"></i>
+                            </button>
+                        </div>
+
+                        <!-- Target Base -->
+                        <div class="md:col-span-5 space-y-1.5">
+                            <label for="targetBase" class="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">
+                                <span class="circuit-node active-amber"></span> Target Radix
+                            </label>
+                            <select id="targetBase" class="w-full px-3 py-2.5 rounded-lg text-sm font-mono cursor-pointer">
+                                <!-- Dynamically populated JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Selectors -->
+                    <div class="space-y-2 pt-2 border-t border-slate-800/80">
+                        <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">Quick Source Presets</span>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            <button class="preset-btn conv-preset py-1.5 px-2 rounded-lg text-xs font-mono text-center" data-base="2">BIN (2)</button>
+                            <button class="preset-btn conv-preset py-1.5 px-2 rounded-lg text-xs font-mono text-center" data-base="8">OCT (8)</button>
+                            <button class="preset-btn conv-preset py-1.5 px-2 rounded-lg text-xs font-mono text-center" data-base="10">DEC (10)</button>
+                            <button class="preset-btn conv-preset py-1.5 px-2 rounded-lg text-xs font-mono text-center" data-base="16">HEX (16)</button>
+                            <button class="preset-btn conv-preset py-1.5 px-2 rounded-lg text-xs font-mono text-center" data-base="32">B32 (32)</button>
+                            <button class="preset-btn conv-preset py-1.5 px-2 rounded-lg text-xs font-mono text-center" data-base="36">B36 (36)</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Result Box -->
+                <div class="circuit-panel rounded-2xl p-5 md:p-6 border-cyan-500/40 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-square-poll-vertical"></i> Converted Output
+                        </span>
+                        <span id="targetRadixBadge" class="text-xs font-mono bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 px-2.5 py-0.5 rounded-full">
+                            Base 16 (HEX)
+                        </span>
+                    </div>
+
+                    <div class="relative bg-slate-950/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between min-h-[70px] overflow-x-auto group">
+                        <div id="outputValue" class="font-mono text-xl md:text-3xl text-emerald-400 font-extrabold break-all glow-green">
+                            --
+                        </div>
+                        <button id="copyResultBtn" class="ml-3 p-2.5 bg-slate-900 hover:bg-emerald-950 border border-emerald-500/30 text-emerald-400 rounded-lg hover:border-emerald-400 transition-all flex-shrink-0" title="Copy Result">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Valid Characters & Conversion Matrix Steps -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- Valid Character Key Table -->
+                <div class="circuit-panel rounded-2xl p-5 space-y-3">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-key"></i> Valid Digits (Base <span id="currentBaseVal">10</span>)
+                        </h3>
+                        <span class="text-xs text-slate-500 font-mono">Range: <span id="digitRange" class="text-slate-300">0-9</span></span>
+                    </div>
+
+                    <div id="characterChart" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Step-by-Step Breakdown Matrix -->
+                <div class="circuit-panel rounded-2xl p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-diagram-project"></i> Step-By-Step Matrix
+                        </h3>
+                        <span class="text-xs text-slate-500 font-mono">Math Breakdown</span>
+                    </div>
+
+                    <div id="stepsContainer" class="space-y-4 text-xs font-mono overflow-y-auto max-h-[320px] pr-1">
+                        <!-- Step breakdown inserted dynamically by JS -->
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- MODE 2: BASE ARITHMETIC CALCULATOR VIEW -->
+        <div id="arithmeticView" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left Column: Arithmetic Input Form -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <div class="circuit-panel rounded-2xl p-5 md:p-6 space-y-5">
+                    
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-calculator"></i> Multi-Radix Arithmetic Engine
+                        </span>
+                        <span class="text-xs text-slate-400 font-mono">Floating-Point Supported</span>
+                    </div>
+
+                    <!-- Operands Base Selector & Operation Base -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label for="arithSourceBase" class="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">
+                                <span class="circuit-node active-cyan"></span> Operands Base (In)
+                            </label>
+                            <select id="arithSourceBase" class="w-full px-3 py-2.5 rounded-lg text-sm font-mono cursor-pointer">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="arithTargetBase" class="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">
+                                <span class="circuit-node active-amber"></span> Output Radix (Out)
+                            </label>
+                            <select id="arithTargetBase" class="w-full px-3 py-2.5 rounded-lg text-sm font-mono cursor-pointer">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Operand 1 Input -->
+                    <div class="space-y-1.5">
+                        <label for="operand1" class="text-xs font-semibold text-slate-300">Operand 1:</label>
+                        <input type="text" id="operand1" placeholder="e.g. 1011.101, A3F.8" 
+                            class="w-full px-4 py-3 rounded-xl font-mono text-base tracking-wide" value="1011.101">
+                        <div id="op1Error" class="hidden text-xs text-rose-400 font-mono mt-1">
+                            <i class="fa-solid fa-circle-exclamation"></i> Invalid characters for Base.
+                        </div>
+                    </div>
+
+                    <!-- Operator Selection Row -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-300">Operation:</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button class="op-btn py-2 rounded-xl text-lg font-bold border border-cyan-500/30 bg-slate-900 text-cyan-400 hover:bg-cyan-950 transition-all active-op" data-op="+">+</button>
+                            <button class="op-btn py-2 rounded-xl text-lg font-bold border border-cyan-500/30 bg-slate-900 text-cyan-400 hover:bg-cyan-950 transition-all" data-op="-">−</button>
+                            <button class="op-btn py-2 rounded-xl text-lg font-bold border border-cyan-500/30 bg-slate-900 text-cyan-400 hover:bg-cyan-950 transition-all" data-op="*">×</button>
+                            <button class="op-btn py-2 rounded-xl text-lg font-bold border border-cyan-500/30 bg-slate-900 text-cyan-400 hover:bg-cyan-950 transition-all" data-op="/">÷</button>
+                        </div>
+                    </div>
+
+                    <!-- Operand 2 Input -->
+                    <div class="space-y-1.5">
+                        <label for="operand2" class="text-xs font-semibold text-slate-300">Operand 2:</label>
+                        <input type="text" id="operand2" placeholder="e.g. 101.1, 1F.4" 
+                            class="w-full px-4 py-3 rounded-xl font-mono text-base tracking-wide" value="10.11">
+                        <div id="op2Error" class="hidden text-xs text-rose-400 font-mono mt-1">
+                            <i class="fa-solid fa-circle-exclamation"></i> Invalid characters for Base.
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Arithmetic Calculation Result Card -->
+                <div class="circuit-panel rounded-2xl p-5 md:p-6 border-cyan-500/40 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-square-root-variable"></i> Arithmetic Result
+                        </span>
+                        <span id="arithTargetBadge" class="text-xs font-mono bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 px-2.5 py-0.5 rounded-full">
+                            Target Base 2
+                        </span>
+                    </div>
+
+                    <!-- Result Value Screen -->
+                    <div class="relative bg-slate-950/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between min-h-[70px] overflow-x-auto">
+                        <div>
+                            <div id="arithResultValue" class="font-mono text-xl md:text-3xl text-emerald-400 font-extrabold break-all glow-green">
+                                --
+                            </div>
+                            <div id="arithDecEquivalent" class="text-xs text-slate-400 font-mono mt-1">
+                                Decimal Equivalent: <span class="text-amber-300 font-bold">--</span>
+                            </div>
+                        </div>
+                        <button id="copyArithResultBtn" class="ml-3 p-2.5 bg-slate-900 hover:bg-emerald-950 border border-emerald-500/30 text-emerald-400 rounded-lg hover:border-emerald-400 transition-all flex-shrink-0" title="Copy Result">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Arithmetic Matrix Breakdown -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <div class="circuit-panel rounded-2xl p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-square-binary"></i> Operation Matrix Steps
+                        </h3>
+                        <span class="text-xs text-slate-500 font-mono">Evaluation Log</span>
+                    </div>
+
+                    <div id="arithStepsContainer" class="space-y-4 text-xs font-mono overflow-y-auto max-h-[460px] pr-1">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Footer Info -->
+        <footer class="text-center text-xs text-slate-500 pt-4 border-t border-slate-900 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span>Radix Engine v3.0 // Floating Point Base & Arithmetic Logic</span>
+            <span class="text-slate-600">Cyberpunk Dark Circuit Interface</span>
+        </footer>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 border border-cyan-500 text-cyan-300 font-mono text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toastMessage">Copied to clipboard!</span>
+    </div>
+
+    <script>
+        // RADIX DIGITS ALPHABET (Base 2 to 36)
+        const RADIX_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        // Global DOM Elements
+        const inputValue = document.getElementById('inputValue');
+        const outputValue = document.getElementById('outputValue');
+        const sourceBase = document.getElementById('sourceBase');
+        const targetBase = document.getElementById('targetBase');
+        const swapBasesBtn = document.getElementById('swapBasesBtn');
+        const clearInputBtn = document.getElementById('clearInputBtn');
+        const copyResultBtn = document.getElementById('copyResultBtn');
+        const charCount = document.getElementById('charCount');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const targetRadixBadge = document.getElementById('targetRadixBadge');
+        const currentBaseVal = document.getElementById('currentBaseVal');
+        const digitRange = document.getElementById('digitRange');
+        const characterChart = document.getElementById('characterChart');
+        const stepsContainer = document.getElementById('stepsContainer');
+        const precisionSelect = document.getElementById('precisionSelect');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // Mode Switching
+        const tabConverter = document.getElementById('tabConverter');
+        const tabArithmetic = document.getElementById('tabArithmetic');
+        const converterView = document.getElementById('converterView');
+        const arithmeticView = document.getElementById('arithmeticView');
+        const loadPresetSampleBtn = document.getElementById('loadPresetSampleBtn');
+
+        // Arithmetic Mode Elements
+        const arithSourceBase = document.getElementById('arithSourceBase');
+        const arithTargetBase = document.getElementById('arithTargetBase');
+        const operand1 = document.getElementById('operand1');
+        const operand2 = document.getElementById('operand2');
+        const op1Error = document.getElementById('op1Error');
+        const op2Error = document.getElementById('op2Error');
+        const arithResultValue = document.getElementById('arithResultValue');
+        const arithDecEquivalent = document.getElementById('arithDecEquivalent');
+        const copyArithResultBtn = document.getElementById('copyArithResultBtn');
+        const arithStepsContainer = document.getElementById('arithStepsContainer');
+        const arithTargetBadge = document.getElementById('arithTargetBadge');
+        let selectedOperator = '+';
+
+        // Initialize Select Options
+        function initBaseOptions() {
+            for (let b = 2; b <= 36; b++) {
+                let label = `Base ${b}`;
+                if (b === 2) label += " (Binary)";
+                else if (b === 8) label += " (Octal)";
+                else if (b === 10) label += " (Decimal)";
+                else if (b === 16) label += " (Hexadecimal)";
+                else if (b === 32) label += " (Base 32)";
+                else if (b === 36) label += " (Base 36)";
+
+                sourceBase.add(new Option(label, b));
+                targetBase.add(new Option(label, b));
+                arithSourceBase.add(new Option(label, b));
+                arithTargetBase.add(new Option(label, b));
+            }
+
+            sourceBase.value = 2;
+            targetBase.value = 16;
+            arithSourceBase.value = 2;
+            arithTargetBase.value = 10;
+        }
+
+        // Validate if String matches allowed Radix Digits (supporting single decimal point)
+        function isValidRadixNumber(str, base) {
+            if (!str) return true;
+            const clean = str.trim().toUpperCase();
+            const allowedDigits = RADIX_CHARS.slice(0, base);
+
+            let dotCount = 0;
+            for (let i = 0; i < clean.length; i++) {
+                const char = clean[i];
+                if (char === '.') {
+                    dotCount++;
+                    if (dotCount > 1) return false; // Multiple decimal points invalid
+                } else if (!allowedDigits.includes(char)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /* 
+           CORE RADIX ALGORITHMS (ANY BASE TO DECIMAL & DECIMAL TO ANY BASE WITH FLOATING POINT)
+        */
+
+        // 1. Convert Base N string to Decimal (number)
+        function baseToDecimal(str, base) {
+            if (!str || !str.trim()) return 0;
+            const clean = str.trim().toUpperCase();
+            const parts = clean.split('.');
+
+            const intPart = parts[0] || '0';
+            const fracPart = parts[1] || '';
+
+            // Integer conversion
+            let decInt = 0;
+            for (let i = 0; i < intPart.length; i++) {
+                const char = intPart[i];
+                const digit = RADIX_CHARS.indexOf(char);
+                decInt = decInt * base + digit;
+            }
+
+            // Fractional conversion
+            let decFrac = 0;
+            for (let i = 0; i < fracPart.length; i++) {
+                const char = fracPart[i];
+                const digit = RADIX_CHARS.indexOf(char);
+                decFrac += digit / Math.pow(base, i + 1);
+            }
+
+            return decInt + decFrac;
+        }
+
+        // 2. Convert Decimal (number) to Target Base N string
+        function decimalToBase(decNum, targetBase, maxPrecision = 8) {
+            if (isNaN(decNum) || !isFinite(decNum)) return 'ERR';
+            if (decNum === 0) return '0';
+
+            const isNegative = decNum < 0;
+            let absNum = Math.abs(decNum);
+
+            let intPart = Math.floor(absNum);
+            let fracPart = absNum - intPart;
+
+            // Integer part conversion
+            let intResult = '';
+            if (intPart === 0) {
+                intResult = '0';
+            } else {
+                while (intPart > 0) {
+                    const rem = intPart % targetBase;
+                    intResult = RADIX_CHARS[rem] + intResult;
+                    intPart = Math.floor(intPart / targetBase);
+                }
+            }
+
+            // Fractional part conversion
+            let fracResult = '';
+            if (fracPart > 1e-11) {
+                let count = 0;
+                while (fracPart > 1e-11 && count < maxPrecision) {
+                    fracPart *= targetBase;
+                    const digit = Math.floor(fracPart);
+                    fracResult += RADIX_CHARS[digit];
+                    fracPart -= digit;
+                    count++;
+                }
+            }
+
+            let finalStr = intResult;
+            if (fracResult.length > 0) {
+                finalStr += '.' + fracResult;
+            }
+
+            return isNegative ? '-' + finalStr : finalStr;
+        }
+
+        // Update Valid Character Grid Reference
+        function updateValidCharChart(base) {
+            currentBaseVal.textContent = base;
+            characterChart.innerHTML = '';
+            
+            const allowed = RADIX_CHARS.slice(0, base);
+            if (base <= 10) {
+                digitRange.textContent = `0 - ${base - 1}`;
+            } else {
+                digitRange.textContent = `0-9, A - ${allowed[allowed.length - 1]}`;
+            }
+
+            for (let i = 0; i < allowed.length; i++) {
+                const char = allowed[i];
+                const badge = document.createElement('span');
+                badge.className = 'px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs font-mono text-cyan-300 cursor-default hover:border-cyan-500/50 transition-colors';
+                if (isNaN(char)) {
+                    badge.innerHTML = `${char}<sub class="text-[9px] text-slate-500 ml-0.5">${i}</sub>`;
+                } else {
+                    badge.textContent = char;
+                }
+                characterChart.appendChild(badge);
+            }
+        }
+
+        // Process Single Converter Logic & Steps Breakdown
+        function processConverter() {
+            const raw = inputValue.value;
+            const srcB = parseInt(sourceBase.value, 10);
+            const tgtB = parseInt(targetBase.value, 10);
+            const precision = parseInt(precisionSelect.value, 10);
+
+            charCount.textContent = `${raw.length} chars`;
+            updateValidCharChart(srcB);
+            updatePresetHighlighting();
+
+            targetRadixBadge.textContent = targetBase.options[targetBase.selectedIndex].text;
+
+            if (!isValidRadixNumber(raw, srcB)) {
+                inputValue.classList.add('invalid-input');
+                errorMessage.classList.remove('hidden');
+                errorText.textContent = `Invalid digit or decimal placement for Base ${srcB}!`;
+                outputValue.textContent = 'ERR';
+                outputValue.classList.remove('text-emerald-400', 'glow-green');
+                outputValue.classList.add('text-rose-500', 'glow-magenta');
+                stepsContainer.innerHTML = `
+                    <div class="text-rose-400 text-xs p-3 rounded-xl bg-rose-950/20 border border-rose-900/40">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Conversion halted due to invalid radix input string.
+                    </div>`;
+                return;
+            }
+
+            inputValue.classList.remove('invalid-input');
+            errorMessage.classList.add('hidden');
+            outputValue.classList.remove('text-rose-500', 'glow-magenta');
+            outputValue.classList.add('text-emerald-400', 'glow-green');
+
+            if (!raw.trim()) {
+                outputValue.textContent = '--';
+                stepsContainer.innerHTML = `<div class="text-slate-500 italic text-center py-4">Awaiting input...</div>`;
+                return;
+            }
+
+            const decVal = baseToDecimal(raw, srcB);
+            const resultStr = decimalToBase(decVal, tgtB, precision);
+
+            outputValue.textContent = resultStr;
+
+            // Render Step Matrix
+            renderConverterSteps(raw.trim().toUpperCase(), srcB, tgtB, decVal, resultStr, precision);
+        }
+
+        // Render Math Breakdown Matrix
+        function renderConverterSteps(cleanInput, srcB, tgtB, decVal, resultStr, precision) {
+            stepsContainer.innerHTML = '';
+
+            const parts = cleanInput.split('.');
+            const intPart = parts[0] || '0';
+            const fracPart = parts[1] || '';
+
+            // Step 1: Base N to Decimal
+            const step1 = document.createElement('div');
+            step1.className = 'space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800';
+
+            let expTerms = [];
+            for (let i = 0; i < intPart.length; i++) {
+                const char = intPart[i];
+                const p = intPart.length - 1 - i;
+                expTerms.push(`(${char} × ${srcB}<sup>${p}</sup>)`);
+            }
+            for (let i = 0; i < fracPart.length; i++) {
+                const char = fracPart[i];
+                const p = -(i + 1);
+                expTerms.push(`(${char} × ${srcB}<sup>${p}</sup>)`);
+            }
+
+            step1.innerHTML = `
+                <div class="text-amber-400 font-bold flex items-center gap-1.5">
+                    <span class="w-4 h-4 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px]">1</span>
+                    Convert Source Base ${srcB} to Decimal (Base 10)
+                </div>
+                <div class="text-slate-400 text-[11px] leading-relaxed break-all">
+                    ${cleanInput}<sub>${srcB}</sub> = ${expTerms.join(' + ')}
+                </div>
+                <div class="text-emerald-400 font-semibold text-xs pt-1 border-t border-slate-900">
+                    Decimal Equivalent = ${decVal}<sub>10</sub>
+                </div>
+            `;
+            stepsContainer.appendChild(step1);
+
+            // Step 2: Decimal to Target Base (Integer Division & Fractional Multiplication)
+            const step2 = document.createElement('div');
+            step2.className = 'space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800';
+
+            let intVal = Math.floor(decVal);
+            let fracVal = decVal - intVal;
+
+            let divLogs = [];
+            let tempInt = intVal;
+            if (tempInt === 0) divLogs.push(`0 ÷ ${tgtB} = Quotient 0, Remainder 0 ('0')`);
+            while (tempInt > 0) {
+                const q = Math.floor(tempInt / tgtB);
+                const r = tempInt % tgtB;
+                divLogs.push(`${tempInt} ÷ ${tgtB} = Quotient ${q}, Remainder ${r} (${RADIX_CHARS[r]})`);
+                tempInt = q;
+            }
+
+            let multLogs = [];
+            let tempFrac = fracVal;
+            let count = 0;
+            while (tempFrac > 1e-11 && count < precision) {
+                const next = tempFrac * tgtB;
+                const digit = Math.floor(next);
+                multLogs.push(`${tempFrac.toFixed(4)} × ${tgtB} = ${next.toFixed(4)} (Digit: ${RADIX_CHARS[digit]})`);
+                tempFrac = next - digit;
+                count++;
+            }
+
+            step2.innerHTML = `
+                <div class="text-cyan-400 font-bold flex items-center gap-1.5">
+                    <span class="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px]">2</span>
+                    Convert Decimal to Target Base ${tgtB}
+                </div>
+                
+                <div class="text-slate-400 text-[11px] font-bold mt-2">A. Integer Part (Successive Division):</div>
+                <div class="space-y-1 text-[11px] text-slate-300 my-1 max-h-28 overflow-y-auto">
+                    ${divLogs.map(l => `<div class="bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">${l}</div>`).join('')}
+                </div>
+
+                ${multLogs.length > 0 ? `
+                <div class="text-slate-400 text-[11px] font-bold mt-2">B. Fractional Part (Successive Multiplication):</div>
+                <div class="space-y-1 text-[11px] text-slate-300 my-1 max-h-28 overflow-y-auto">
+                    ${multLogs.map(l => `<div class="bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">${l}</div>`).join('')}
+                </div>
+                ` : ''}
+
+                <div class="text-emerald-400 font-semibold text-xs pt-1 border-t border-slate-900">
+                    Target Result = <span class="text-cyan-300 font-bold break-all">${resultStr}<sub>${tgtB}</sub></span>
+                </div>
+            `;
+            stepsContainer.appendChild(step2);
+        }
+
+        // Process Arithmetic Engine Calculations
+        function processArithmetic() {
+            const op1 = operand1.value.trim();
+            const op2 = operand2.value.trim();
+            const srcB = parseInt(arithSourceBase.value, 10);
+            const tgtB = parseInt(arithTargetBase.value, 10);
+            const precision = parseInt(precisionSelect.value, 10);
+
+            arithTargetBadge.textContent = arithTargetBase.options[arithTargetBase.selectedIndex].text;
+
+            let v1Valid = isValidRadixNumber(op1, srcB);
+            let v2Valid = isValidRadixNumber(op2, srcB);
+
+            if (!v1Valid) op1Error.classList.remove('hidden');
+            else op1Error.classList.add('hidden');
+
+            if (!v2Valid) op2Error.classList.remove('hidden');
+            else op2Error.classList.add('hidden');
+
+            if (!v1Valid || !v2Valid || !op1 || !op2) {
+                arithResultValue.textContent = '--';
+                arithDecEquivalent.innerHTML = 'Decimal Equivalent: <span class="text-amber-300 font-bold">--</span>';
+                arithStepsContainer.innerHTML = `<div class="text-slate-500 italic text-center py-4">Awaiting valid operands...</div>`;
+                return;
+            }
+
+            // Convert operands to Decimal
+            const dec1 = baseToDecimal(op1, srcB);
+            const dec2 = baseToDecimal(op2, srcB);
+
+            let decResult = 0;
+            if (selectedOperator === '+') decResult = dec1 + dec2;
+            else if (selectedOperator === '-') decResult = dec1 - dec2;
+            else if (selectedOperator === '*') decResult = dec1 * dec2;
+            else if (selectedOperator === '/') {
+                if (dec2 === 0) {
+                    arithResultValue.textContent = 'DIV/0';
+                    arithDecEquivalent.innerHTML = 'Decimal Equivalent: <span class="text-rose-400 font-bold">Undefined</span>';
+                    arithStepsContainer.innerHTML = `<div class="text-rose-400 p-3 bg-rose-950/20 border border-rose-900 rounded-xl">Error: Division by Zero</div>`;
+                    return;
+                }
+                decResult = dec1 / dec2;
+            }
+
+            const targetResult = decimalToBase(decResult, tgtB, precision);
+
+            arithResultValue.textContent = targetResult;
+            arithDecEquivalent.innerHTML = `Decimal Equivalent: <span class="text-amber-300 font-bold">${decResult}<sub>10</sub></span>`;
+
+            // Render Arithmetic Matrix Log
+            arithStepsContainer.innerHTML = `
+                <div class="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+                    <div class="text-amber-400 font-bold">Step 1: Convert Operands (Base ${srcB}) to Decimal</div>
+                    <div class="text-slate-300 space-y-1">
+                        <div>Operand 1: ${op1}<sub>${srcB}</sub> = <span class="text-cyan-300 font-bold">${dec1}<sub>10</sub></span></div>
+                        <div>Operand 2: ${op2}<sub>${srcB}</sub> = <span class="text-cyan-300 font-bold">${dec2}<sub>10</sub></span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+                    <div class="text-cyan-400 font-bold">Step 2: Perform Operation (${selectedOperator}) in Decimal</div>
+                    <div class="text-slate-200 font-bold bg-slate-900 p-2 rounded border border-slate-800">
+                        ${dec1} ${selectedOperator} ${dec2} = <span class="text-emerald-400">${decResult}<sub>10</sub></span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+                    <div class="text-emerald-400 font-bold">Step 3: Convert Result to Target Base ${tgtB}</div>
+                    <div class="text-slate-300">
+                        Decimal ${decResult}<sub>10</sub> = <span class="text-cyan-300 font-extrabold text-sm">${targetResult}<sub>${tgtB}</sub></span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Highlight preset buttons matching active source base
+        function updatePresetHighlighting() {
+            const currentSrc = sourceBase.value;
+            document.querySelectorAll('.conv-preset').forEach(btn => {
+                if (btn.dataset.base === currentSrc) {
+                    btn.classList.add('active-preset');
+                } else {
+                    btn.classList.remove('active-preset');
+                }
+            });
+        }
+
+        // UI Toast Messages
+        function showToast(msg) {
+            toastMessage.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function copyToClipboard(text) {
+            if (!text || text === '--' || text === 'ERR' || text === 'DIV/0') return;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Copied "${text}" to clipboard!`);
+            } catch (err) {
+                showToast('Failed to copy text.');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Setup All UI Event Handlers
+        function setupEventListeners() {
+            // Mode Tab Switchers
+            tabConverter.addEventListener('click', () => {
+                tabConverter.classList.add('active-tab');
+                tabArithmetic.classList.remove('active-tab');
+                converterView.classList.remove('hidden');
+                arithmeticView.classList.add('hidden');
+            });
+
+            tabArithmetic.addEventListener('click', () => {
+                tabArithmetic.classList.add('active-tab');
+                tabConverter.classList.remove('active-tab');
+                arithmeticView.classList.remove('hidden');
+                converterView.classList.add('hidden');
+                processArithmetic();
+            });
+
+            // Converter Event Listeners
+            inputValue.addEventListener('input', processConverter);
+            sourceBase.addEventListener('change', processConverter);
+            targetBase.addEventListener('change', processConverter);
+            precisionSelect.addEventListener('change', () => {
+                processConverter();
+                processArithmetic();
+            });
+
+            swapBasesBtn.addEventListener('click', () => {
+                const temp = sourceBase.value;
+                sourceBase.value = targetBase.value;
+                targetBase.value = temp;
+
+                if (outputValue.textContent !== '--' && outputValue.textContent !== 'ERR') {
+                    inputValue.value = outputValue.textContent;
+                }
+                processConverter();
+                showToast('Swapped Radix Bases!');
+            });
+
+            clearInputBtn.addEventListener('click', () => {
+                inputValue.value = '';
+                inputValue.focus();
+                processConverter();
+            });
+
+            document.querySelectorAll('.conv-preset').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    sourceBase.value = btn.dataset.base;
+                    processConverter();
+                });
+            });
+
+            copyResultBtn.addEventListener('click', () => copyToClipboard(outputValue.textContent));
+            copyArithResultBtn.addEventListener('click', () => copyToClipboard(arithResultValue.textContent));
+
+            // Arithmetic Event Listeners
+            operand1.addEventListener('input', processArithmetic);
+            operand2.addEventListener('input', processArithmetic);
+            arithSourceBase.addEventListener('change', processArithmetic);
+            arithTargetBase.addEventListener('change', processArithmetic);
+
+            document.querySelectorAll('.op-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.op-btn').forEach(b => b.classList.remove('bg-cyan-500/20', 'border-cyan-400', 'text-white'));
+                    btn.classList.add('bg-cyan-500/20', 'border-cyan-400', 'text-white');
+                    selectedOperator = btn.dataset.op;
+                    processArithmetic();
+                });
+            });
+
+            // Example Floating-Point Samples Preset Loader
+            loadPresetSampleBtn.addEventListener('click', () => {
+                if (!converterView.classList.contains('hidden')) {
+                    inputValue.value = "1011010.101";
+                    sourceBase.value = 2;
+                    targetBase.value = 16;
+                    processConverter();
+                    showToast('Loaded Floating-Point Binary Sample!');
+                } else {
+                    operand1.value = "A3.8";
+                    operand2.value = "1F.4";
+                    arithSourceBase.value = 16;
+                    arithTargetBase.value = 2;
+                    processArithmetic();
+                    showToast('Loaded Floating-Point Hex Arithmetic Sample!');
+                }
+            });
+        }
+
+        // Initialize App on DOM Load
+        window.onload = function() {
+            initBaseOptions();
+            setupEventListeners();
+            processConverter();
+        };
+    </script>
+</body>
+</html>
