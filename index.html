@@ -1,4 +1,211 @@
-// Render Step-by-Step Any-Base Digit Long Division (÷) - Authentic Long Division Graphic
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base Converter & Arithmetic Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .long-div-table {
+            border-collapse: collapse;
+            font-family: monospace;
+        }
+        .long-div-table td {
+            padding: 2px 6px;
+            text-align: center;
+        }
+        .div-roof {
+            border-top: 2px solid #38bdf8;
+        }
+        .div-bracket {
+            border-right: 2px solid #38bdf8;
+            border-top-right-radius: 4px;
+        }
+        .minus-row {
+            border-bottom: 1px solid #475569;
+        }
+        .glow-green {
+            text-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="border-b border-slate-800 pb-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-cyan-400">Number Base & Arithmetic Calculator</h1>
+            <span class="text-xs text-slate-500 font-mono">v2.4 - Precision Alignment Edition</span>
+        </header>
+
+        <!-- Main Controls -->
+        <main class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Inputs -->
+            <section class="bg-slate-900/80 p-6 rounded-xl border border-slate-800 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-200">Input Parameters</h2>
+                
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Base (2 - 36)</label>
+                    <input type="number" id="baseInput" value="2" min="2" max="36" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Dividend (Number 1)</label>
+                    <input type="text" id="num1Input" value="1011.101" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Divisor (Number 2)</label>
+                    <input type="text" id="num2Input" value="10.11" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Precision (Fractional Digits)</label>
+                    <input type="number" id="precisionInput" value="8" min="0" max="20" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono">
+                </div>
+
+                <button id="calcBtn" class="w-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">
+                    Calculate Division
+                </button>
+            </section>
+
+            <!-- Arithmetic Result Summary -->
+            <section class="bg-slate-900/80 p-6 rounded-xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-200 mb-4">Arithmetic Result</h2>
+                    <div class="space-y-3">
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                            <div class="text-xs text-slate-500 uppercase">Operation</div>
+                            <div class="text-sm font-mono text-cyan-400" id="resOpDisplay">1011.101 ÷ 10.11</div>
+                        </div>
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                            <div class="text-xs text-slate-500 uppercase">Quotient (Target Base)</div>
+                            <div class="text-lg font-mono font-bold text-emerald-400" id="resQuotientDisplay">100.00111010</div>
+                        </div>
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                            <div class="text-xs text-slate-500 uppercase">Decimal Equivalent</div>
+                            <div class="text-sm font-mono text-slate-300" id="resDecimalDisplay">11.625 ÷ 2.75 = 4.22727273</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Long Division Graphic Area -->
+        <section class="bg-slate-900/80 p-6 rounded-xl border border-slate-800">
+            <h2 class="text-lg font-semibold text-slate-200 mb-4">Step-by-Step Long Division</h2>
+            <div id="arithLongDivBox" class="overflow-x-auto">
+                <!-- Long division rendered here dynamically -->
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const RADIX_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        function radixToDecimal(str, base) {
+            const parts = str.split('.');
+            let integerPart = BigInt(0);
+            const intStr = parts[0] || "0";
+            for (let i = 0; i < intStr.length; i++) {
+                const val = BigInt(RADIX_CHARS.indexOf(intStr[i].toUpperCase()));
+                integerPart = integerPart * BigInt(base) + val;
+            }
+
+            let fracPart = 0;
+            if (parts.length > 1) {
+                const fracStr = parts[1];
+                for (let i = 0; i < fracStr.length; i++) {
+                    const val = RADIX_CHARS.indexOf(fracStr[i].toUpperCase());
+                    fracPart += val / Math.pow(base, i + 1);
+                }
+            }
+
+            return Number(integerPart) + fracPart;
+        }
+
+        function decimalToRadix(num, base, precision = 8) {
+            if (isNaN(num)) return "0";
+            let intPart = Math.floor(Math.abs(num));
+            let fracPart = Math.abs(num) - intPart;
+
+            let intStr = "";
+            if (intPart === 0) {
+                intStr = "0";
+            } else {
+                while (intPart > 0) {
+                    const rem = intPart % base;
+                    intStr = RADIX_CHARS[rem] + intStr;
+                    intPart = Math.floor(intPart / base);
+                }
+            }
+
+            let fracStr = "";
+            for (let i = 0; i < precision; i++) {
+                fracPart *= base;
+                const digit = Math.floor(fracPart);
+                fracStr += RADIX_CHARS[digit];
+                fracPart -= digit;
+            }
+
+            // Trim trailing zeros in fraction
+            fracStr = fracStr.replace(/0+$/, '');
+
+            const sign = num < 0 ? "-" : "";
+            return fracStr.length > 0 ? `${sign}${intStr}.${fracStr}` : `${sign}${intStr}`;
+        }
+
+        function parseBaseInt(str, base) {
+            let res = 0n;
+            for (let char of str) {
+                const val = BigInt(RADIX_CHARS.indexOf(char.toUpperCase()));
+                res = res * BigInt(base) + val;
+            }
+            return res;
+        }
+
+        function compareBaseStrings(s1, s2, base) {
+            const d1 = parseBaseInt(s1, base);
+            const d2 = parseBaseInt(s2, base);
+            if (d1 < d2) return -1;
+            if (d1 > d2) return 1;
+            return 0;
+        }
+
+        function multiplyBaseStrings(s1, singleChar, base) {
+            const num1 = parseBaseInt(s1, base);
+            const num2 = parseBaseInt(singleChar, base);
+            const prod = num1 * num2;
+            
+            if (prod === 0n) return "0";
+            let res = "";
+            let temp = prod;
+            while (temp > 0n) {
+                const rem = Number(temp % BigInt(base));
+                res = RADIX_CHARS[rem] + res;
+                temp /= BigInt(base);
+            }
+            return res;
+        }
+
+        function subtractBaseStrings(s1, s2, base) {
+            const num1 = parseBaseInt(s1, base);
+            const num2 = parseBaseInt(s2, base);
+            const diff = num1 - num2;
+            if (diff <= 0n) return "0";
+
+            let res = "";
+            let temp = diff;
+            while (temp > 0n) {
+                const rem = Number(temp % BigInt(base));
+                res = RADIX_CHARS[rem] + res;
+                temp /= BigInt(base);
+            }
+            return res;
+        }
+
+        const arithLongDivBox = document.getElementById("arithLongDivBox");
+
+        // Render Step-by-Step Any-Base Digit Long Division (÷) - Authentic Long Division Graphic
         function renderAnyBaseLongDivision(dividendStr, divisorStr, base, precision) {
             arithLongDivBox.innerHTML = "";
 
@@ -168,3 +375,29 @@
 
             arithLongDivBox.innerHTML = html;
         }
+
+        function calculate() {
+            const base = parseInt(document.getElementById("baseInput").value, 10);
+            const num1 = document.getElementById("num1Input").value.trim();
+            const num2 = document.getElementById("num2Input").value.trim();
+            const precision = parseInt(document.getElementById("precisionInput").value, 10);
+
+            const dec1 = radixToDecimal(num1, base);
+            const dec2 = radixToDecimal(num2, base);
+            const quotientDec = dec1 / dec2;
+            const quotientBase = decimalToRadix(quotientDec, base, precision);
+
+            document.getElementById("resOpDisplay").textContent = `${num1} ÷ ${num2} (Base ${base})`;
+            document.getElementById("resQuotientDisplay").textContent = quotientBase;
+            document.getElementById("resDecimalDisplay").textContent = `${dec1} ÷ ${dec2} = ${quotientDec.toFixed(8)}`;
+
+            renderAnyBaseLongDivision(num1, num2, base, precision);
+        }
+
+        document.getElementById("calcBtn").addEventListener("click", calculate);
+        
+        // Initial run on load
+        calculate();
+    </script>
+</body>
+</html>
