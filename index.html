@@ -352,9 +352,9 @@
                 <div class="circuit-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-800 pb-2">
                         <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-                            <i class="fa-solid fa-divide"></i> Long Division Method (Fractional Terms)
+                            <i class="fa-solid fa-divide"></i> Fractional Expansion Steps
                         </h3>
-                        <span class="text-xs text-slate-400 font-mono">Step-by-Step Division</span>
+                        <span class="text-xs text-slate-400 font-mono">Fractional Terms</span>
                     </div>
 
                     <div id="longDivisionContainer" class="space-y-4 overflow-y-auto max-h-[300px] pr-1">
@@ -438,25 +438,25 @@
 
             </div>
 
-            <!-- Right Column: Step-by-Step Any-Base Matrix & Partial Products -->
+            <!-- Right Column: Step-by-Step Any-Base Arithmetic Solution -->
             <div class="lg:col-span-6 space-y-6">
 
                 <div class="circuit-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                        <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-                            <i class="fa-solid fa-layer-group"></i> Step-by-Step Multi-Base Matrix
+                        <h3 id="solutionPanelTitle" class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group"></i> 2-Layer Arithmetic Matrix
                         </h3>
                         <span id="matrixBaseLabel" class="text-xs text-amber-400 font-mono">Base 2</span>
                     </div>
 
-                    <!-- 2-Layer Visual Arithmetic Box -->
+                    <!-- 2-Layer Visual Arithmetic Box for +, -, * -->
                     <div id="twoLayerArithmeticBox" class="p-4 rounded-xl bg-slate-950/90 border border-slate-800 font-mono text-sm overflow-x-auto">
                         <!-- Formatted 2-Layer columns populated by JS -->
                     </div>
 
-                    <!-- Long Division Matrix Container for ÷ -->
+                    <!-- Step-by-Step Digit Long Division Box for ÷ -->
                     <div id="arithLongDivBox" class="hidden p-4 rounded-xl bg-slate-950/90 border border-slate-800 font-mono text-sm overflow-x-auto">
-                        <!-- Division Matrix -->
+                        <!-- Long Division Steps populated by JS -->
                     </div>
                 </div>
 
@@ -465,7 +465,7 @@
         </div>
 
         <footer class="text-center text-xs text-slate-500 pt-4 border-t border-slate-900 flex flex-col sm:flex-row justify-between items-center gap-2">
-            <span>Radix Calculator v4.0 // Any-Base Multiplication & Long Division Engine</span>
+            <span>Radix Calculator v5.0 // Manual Long Division & 2-Layer Base Engine</span>
             <span class="text-slate-600">Cyberpunk PCB Engine</span>
         </footer>
 
@@ -518,6 +518,7 @@
         const twoLayerArithmeticBox = document.getElementById('twoLayerArithmeticBox');
         const arithLongDivBox = document.getElementById('arithLongDivBox');
         const matrixBaseLabel = document.getElementById('matrixBaseLabel');
+        const solutionPanelTitle = document.getElementById('solutionPanelTitle');
         let selectedOperator = '+';
 
         // Animated PCB Circuit Background Logic
@@ -637,7 +638,7 @@
             return true;
         }
 
-        // Conversions
+        // Base Conversion Helpers
         function baseToDecimal(str, base) {
             if (!str || !str.trim()) return 0;
             const clean = str.trim().toUpperCase();
@@ -698,6 +699,23 @@
             return isNegative ? '-' + finalStr : finalStr;
         }
 
+        // Base Comparison Helper
+        function compareBaseStrings(str1, str2, base) {
+            const val1 = baseToDecimal(str1, base);
+            const val2 = baseToDecimal(str2, base);
+            if (val1 > val2) return 1;
+            if (val1 < val2) return -1;
+            return 0;
+        }
+
+        // Base Subtraction Helper for Strings
+        function subtractBaseStrings(str1, str2, base) {
+            const dec1 = baseToDecimal(str1, base);
+            const dec2 = baseToDecimal(str2, base);
+            const diff = dec1 - dec2;
+            return decimalToBase(diff, base, 0);
+        }
+
         // Process Interactive Base Converter
         function processConverter() {
             const raw = inputValue.value.trim().toUpperCase();
@@ -732,7 +750,7 @@
             const decVal = baseToDecimal(raw, srcB);
             outputValue.textContent = decimalToBase(decVal, tgtB, precision);
 
-            // Render Interactive Positional Solutions Tree & Long Division
+            // Render Interactive Positional Solutions Tree & Step
             renderInteractiveArrowDiagram(raw, srcB);
         }
 
@@ -847,7 +865,7 @@
             });
         }
 
-        // Render Long Division Box
+        // Render Long Division Step for Base Converter
         function renderLongDivisionStep(numerator, denominator, resultVal, base, power) {
             const divBox = document.createElement('div');
             divBox.className = 'p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 font-mono text-xs space-y-2';
@@ -928,16 +946,19 @@
             arithResultValue.textContent = targetResult;
             arithDecEquivalent.innerHTML = `Decimal Equivalent: <span class="text-amber-300 font-bold">${decResult}<sub>10</sub></span>`;
 
-            // Render Any-Base Multiplication & Division Matrices
-            if (selectedOperator === '*') {
+            // Switch view based on operation type
+            if (selectedOperator === '/') {
+                solutionPanelTitle.innerHTML = `<i class="fa-solid fa-divide"></i> Digit-by-Digit Long Division Method`;
+                twoLayerArithmeticBox.classList.add('hidden');
+                arithLongDivBox.classList.remove('hidden');
+                renderManualDigitLongDivision(op1, op2, srcResult, targetResult, srcB, tgtB, precision);
+            } else if (selectedOperator === '*') {
+                solutionPanelTitle.innerHTML = `<i class="fa-solid fa-layer-group"></i> 2-Layer Partial Products Matrix`;
                 arithLongDivBox.classList.add('hidden');
                 twoLayerArithmeticBox.classList.remove('hidden');
                 renderMultiplicationMatrix(op1, op2, srcResult, targetResult, srcB, tgtB);
-            } else if (selectedOperator === '/') {
-                twoLayerArithmeticBox.classList.add('hidden');
-                arithLongDivBox.classList.remove('hidden');
-                renderLongDivisionMatrix(op1, op2, srcResult, targetResult, srcB, tgtB, precision);
             } else {
+                solutionPanelTitle.innerHTML = `<i class="fa-solid fa-layer-group"></i> 2-Layer Arithmetic Alignment`;
                 arithLongDivBox.classList.add('hidden');
                 twoLayerArithmeticBox.classList.remove('hidden');
                 renderTwoLayerArithmeticGrid(op1, op2, selectedOperator, srcResult, targetResult, srcB, tgtB);
@@ -970,15 +991,11 @@
             twoLayerArithmeticBox.appendChild(container);
         }
 
-        // Render Multi-Base Partial Products Multiplication Grid
+        // Render Multi-Base Partial Products Multiplication Grid (2-Layer)
         function renderMultiplicationMatrix(op1, op2, srcResult, targetResult, srcB, tgtB) {
             twoLayerArithmeticBox.innerHTML = '';
 
             const cleanOp2 = op2.replace('.', '');
-            const frac1 = (op1.split('.')[1] || '').length;
-            const frac2 = (op2.split('.')[1] || '').length;
-            const totalFrac = frac1 + frac2;
-
             const op1Clean = op1.replace('.', '');
 
             let partialProducts = [];
@@ -1016,7 +1033,7 @@
                 const zeros = '0'.repeat(pp.shift);
                 partialRowsHTML += `
                     <div class="flex justify-between items-center text-xs text-slate-300 py-0.5">
-                        <span class="text-slate-500">Step ${idx + 1} (${pp.digitChar} × ${op1}):</span>
+                        <span class="text-slate-500">Layer ${idx + 1} (${pp.digitChar} × ${op1}):</span>
                         <span class="text-amber-300 font-semibold">${pp.prodStr}${zeros ? `<span class="text-slate-600">${zeros}</span>` : ''}</span>
                     </div>
                 `;
@@ -1024,7 +1041,7 @@
 
             container.innerHTML = `
                 <div class="text-xs text-amber-400 font-bold mb-1">
-                    Multiplication Matrix (Base ${srcB}):
+                    2-Layer Multiplication Partial Products (Base ${srcB}):
                 </div>
                 <div class="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2">
                     <div class="text-right font-mono text-base tracking-wider space-y-1 border-b border-slate-800 pb-2">
@@ -1035,7 +1052,7 @@
                         </div>
                     </div>
                     <div class="space-y-1 font-mono">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider">Partial Products:</div>
+                        <div class="text-xs text-slate-500 uppercase tracking-wider">Partial Product Steps:</div>
                         ${partialRowsHTML}
                     </div>
                     <div class="border-t-2 border-cyan-500/50 pt-2 text-right font-mono">
@@ -1049,42 +1066,146 @@
             twoLayerArithmeticBox.appendChild(container);
         }
 
-        // Render Multi-Base Long Division Solution
-        function renderLongDivisionMatrix(dividend, divisor, srcResult, targetResult, srcB, tgtB, precision) {
+        // Render Digit-by-Digit Manual Long Division Method (NOT 2-Layer)
+        function renderManualDigitLongDivision(dividendStr, divisorStr, srcResult, targetResult, srcB, tgtB, maxPrecision) {
             arithLongDivBox.innerHTML = '';
 
+            // Shift decimals to integer division
+            const div1Frac = (dividendStr.split('.')[1] || '').length;
+            const div2Frac = (divisorStr.split('.')[1] || '').length;
+            const shift = Math.max(div1Frac, div2Frac);
+
+            let cleanDividend = dividendStr.replace('.', '');
+            let cleanDivisor = divisorStr.replace('.', '');
+
+            if (shift > div1Frac) cleanDividend += '0'.repeat(shift - div1Frac);
+            if (shift > div2Frac) cleanDivisor += '0'.repeat(shift - div2Frac);
+
+            // Strip leading zeros
+            cleanDividend = cleanDividend.replace(/^0+/, '') || '0';
+            cleanDivisor = cleanDivisor.replace(/^0+/, '') || '0';
+
+            const divisorDec = baseToDecimal(cleanDivisor, srcB);
+
+            // Manual digit-by-digit long division algorithm
+            let currentRemStr = '';
+            let quotientStr = '';
+            let longDivSteps = [];
+            let isFractional = false;
+            let precisionCount = 0;
+            let digitIdx = 0;
+
+            const maxSteps = cleanDividend.length + maxPrecision + 2;
+
+            while (digitIdx < cleanDividend.length || (currentRemStr !== '0' && currentRemStr !== '' && precisionCount < maxPrecision)) {
+                let currentDigit = '0';
+                if (digitIdx < cleanDividend.length) {
+                    currentDigit = cleanDividend[digitIdx];
+                } else {
+                    if (!isFractional) {
+                        quotientStr += '.';
+                        isFractional = true;
+                    }
+                    currentDigit = '0';
+                    precisionCount++;
+                }
+
+                currentRemStr = (currentRemStr === '0' ? '' : currentRemStr) + currentDigit;
+                let currentRemDec = baseToDecimal(currentRemStr, srcB);
+
+                if (currentRemDec < divisorDec) {
+                    quotientStr += '0';
+                    longDivSteps.push({
+                        broughtDown: currentRemStr,
+                        qDigit: '0',
+                        subtrahend: '0',
+                        remainder: currentRemStr
+                    });
+                } else {
+                    // Find max quotient digit q in Base srcB
+                    let qVal = Math.floor(currentRemDec / divisorDec);
+                    if (qVal >= srcB) qVal = srcB - 1;
+
+                    let qDigitChar = RADIX_CHARS[qVal];
+                    let subValDec = qVal * divisorDec;
+                    let subStr = decimalToBase(subValDec, srcB);
+
+                    let remValDec = currentRemDec - subValDec;
+                    let newRemStr = decimalToBase(remValDec, srcB);
+
+                    longDivSteps.push({
+                        broughtDown: currentRemStr,
+                        qDigit: qDigitChar,
+                        subtrahend: subStr,
+                        remainder: newRemStr
+                    });
+
+                    quotientStr += qDigitChar;
+                    currentRemStr = newRemStr;
+                }
+
+                digitIdx++;
+                if (longDivSteps.length > maxSteps) break;
+            }
+
+            // Clean leading zeros from quotient if needed
+            let cleanQuotient = quotientStr.replace(/^0+(?=\d)/, '');
+            if (cleanQuotient.startsWith('.')) cleanQuotient = '0' + cleanQuotient;
+
+            // Build Long Division Steps Table
             const container = document.createElement('div');
-            container.className = 'space-y-3';
+            container.className = 'space-y-4';
+
+            let stepsTableHTML = '';
+            longDivSteps.forEach((st, idx) => {
+                stepsTableHTML += `
+                    <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1">
+                        <div class="flex justify-between items-center font-bold text-amber-300">
+                            <span>Step ${idx + 1}: Quotient Digit ➔ <span class="text-emerald-400 text-sm font-extrabold">'${st.qDigit}'</span></span>
+                            <span class="text-slate-500 font-normal">Working Val: ${st.broughtDown}<sub>(${srcB})</sub></span>
+                        </div>
+                        <div class="flex justify-between text-slate-300 pl-3">
+                            <span>Subtract (${st.qDigit} × ${cleanDivisor}):</span>
+                            <span class="text-rose-400 font-semibold">− ${st.subtrahend}</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300 pl-3 border-t border-slate-800/80 pt-0.5">
+                            <span>New Remainder:</span>
+                            <span class="text-cyan-300 font-bold">${st.remainder}</span>
+                        </div>
+                    </div>
+                `;
+            });
 
             container.innerHTML = `
-                <div class="text-xs text-amber-400 font-bold mb-1">
-                    Long Division Layout (Base ${srcB}):
-                </div>
                 <div class="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3 font-mono">
-                    <div class="flex justify-center my-2">
+                    <div class="text-xs text-amber-400 font-bold">
+                        Manual Long Division Layout (Base ${srcB}):
+                    </div>
+                    
+                    <div class="flex justify-center my-3">
                         <table class="long-div-table text-sm">
                             <tr>
                                 <td></td>
-                                <td colspan="6" class="text-emerald-400 font-bold border-b-2 border-cyan-400 text-left pl-2">${srcResult}<sub>(${srcB})</sub></td>
+                                <td colspan="8" class="text-emerald-400 font-bold border-b-2 border-cyan-400 text-left pl-2 text-base">${srcResult}</td>
                             </tr>
                             <tr>
-                                <td class="pr-2 font-bold text-amber-400">${divisor}</td>
-                                <td class="long-div-header pl-2">${dividend}</td>
+                                <td class="pr-2 font-bold text-amber-400 text-base">${divisorStr}</td>
+                                <td class="long-div-header pl-2 text-base text-cyan-300">${dividendStr}</td>
                             </tr>
                         </table>
                     </div>
 
-                    <div class="space-y-1 text-xs border-t border-slate-800 pt-2">
-                        <div class="flex justify-between text-slate-400">
-                            <span>Quotient (Base ${srcB}):</span>
-                            <span class="text-cyan-300 font-bold">${srcResult}</span>
+                    <div class="space-y-2 border-t border-slate-800 pt-3">
+                        <div class="text-xs text-slate-400 uppercase font-bold tracking-wider">Digit-by-Digit Execution Steps:</div>
+                        <div class="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                            ${stepsTableHTML}
                         </div>
-                        ${srcB !== tgtB ? `
-                        <div class="flex justify-between text-emerald-400 font-bold pt-1 border-t border-slate-900">
-                            <span>Converted Quotient (Base ${tgtB}):</span>
-                            <span>${targetResult}</span>
-                        </div>
-                        ` : ''}
+                    </div>
+
+                    <div class="border-t-2 border-cyan-500/50 pt-2 flex flex-col gap-1 text-right">
+                        <div class="text-xs text-slate-400">Final Division Result (Base ${srcB}):</div>
+                        <div class="text-cyan-400 font-extrabold text-lg">${srcResult}<sub>(${srcB})</sub></div>
+                        ${srcB !== tgtB ? `<div class="text-emerald-400 font-extrabold text-sm">Converted Result (Base ${tgtB}): ${targetResult}<sub>(${tgtB})</sub></div>` : ''}
                     </div>
                 </div>
             `;
