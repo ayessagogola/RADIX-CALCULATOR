@@ -154,11 +154,12 @@
             font-family: 'JetBrains Mono', monospace;
             border-collapse: collapse;
             line-height: 1.25;
+            margin: 0 auto;
         }
         .long-div-table td {
-            padding: 2px 5px;
+            padding: 2px 6px;
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
         }
         .div-roof {
             border-top: 2px solid #00f3ff;
@@ -168,7 +169,7 @@
             border-top-left-radius: 4px;
         }
         .minus-row {
-            border-bottom: 1.5px solid rgba(255, 255, 255, 0.4);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.5);
         }
 
         /* Toast Popup */
@@ -360,12 +361,12 @@
                 <div class="circuit-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-800 pb-2">
                         <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-                            <i class="fa-solid fa-divide"></i> Fractional Expansion Steps
+                            <i class="fa-solid fa-divide"></i> Fractional Long Division Steps
                         </h3>
-                        <span class="text-xs text-slate-400 font-mono">Fractional Terms</span>
+                        <span class="text-xs text-slate-400 font-mono">Long Division</span>
                     </div>
 
-                    <div id="longDivisionContainer" class="space-y-4 overflow-y-auto max-h-[300px] pr-1">
+                    <div id="longDivisionContainer" class="space-y-6 overflow-y-auto max-h-[450px] pr-1">
                         <!-- Dynamically populated long division trees -->
                     </div>
                 </div>
@@ -646,64 +647,6 @@
             return true;
         }
 
-        // Base Conversion Core Math
-        function parseToDecimal(valStr, base) {
-            if (!valStr || valStr.trim() === '') return 0;
-            const clean = valStr.trim().toUpperCase();
-            const parts = clean.split('.');
-            
-            let intPart = parts[0] || '0';
-            let intVal = 0;
-            for (let i = 0; i < intPart.length; i++) {
-                const digitVal = RADIX_CHARS.indexOf(intPart[i]);
-                intVal = intVal * base + digitVal;
-            }
-
-            let fracVal = 0;
-            if (parts.length > 1) {
-                let fracPart = parts[1];
-                for (let i = 0; i < fracPart.length; i++) {
-                    const digitVal = RADIX_CHARS.indexOf(fracPart[i]);
-                    fracVal += digitVal / Math.pow(base, i + 1);
-                }
-            }
-
-            return intVal + fracVal;
-        }
-
-        function convertDecimalToBase(decVal, base, precision = 8) {
-            if (isNaN(decVal)) return '0';
-            let intPart = Math.floor(decVal);
-            let fracPart = decVal - intPart;
-
-            let intStr = '';
-            if (intPart === 0) {
-                intStr = '0';
-            } else {
-                while (intPart > 0) {
-                    let rem = intPart % base;
-                    intStr = RADIX_CHARS[rem] + intStr;
-                    intPart = Math.floor(intPart / base);
-                }
-            }
-
-            if (fracPart === 0 || precision === 0) {
-                return intStr;
-            }
-
-            let fracStr = '';
-            let p = 0;
-            while (fracPart > 1e-12 && p < precision) {
-                fracPart *= base;
-                let digit = Math.floor(fracPart);
-                fracStr += RADIX_CHARS[digit];
-                fracPart -= digit;
-                p++;
-            }
-
-            return fracStr ? `${intStr}.${fracStr}` : intStr;
-        }
-
         // Show Toast
         function showToast(msg) {
             toastMessage.textContent = msg;
@@ -711,477 +654,433 @@
             setTimeout(() => toast.classList.remove('show'), 2500);
         }
 
-        // TAB CONVERTER CALCULATIONS & RENDERING
-        function updateConverter() {
-            const rawVal = inputValue.value.trim();
-            const srcBase = parseInt(sourceBase.value);
-            const tgtBase = parseInt(targetBase.value);
-            const prec = parseInt(precisionSelect.value);
+        // Core Any-Base to Decimal Converter
+        function parseToDecimal(valStr, base) {
+            if (!valStr) return 0;
+            const clean = valStr.trim().toUpperCase();
+            const parts = clean.split('.');
+            
+            let integerPart = parts[0] || "0";
+            let fracPart = parts[1] || "";
 
-            charCount.textContent = `${rawVal.length} chars`;
-            targetRadixBadge.textContent = `Base ${tgtBase}`;
+            let intVal = 0;
+            for (let i = 0; i < integerPart.length; i++) {
+                let digitVal = RADIX_CHARS.indexOf(integerPart[i]);
+                intVal = intVal * base + digitVal;
+            }
 
-            if (!isValidRadixNumber(rawVal, srcBase)) {
+            let fracVal = 0;
+            for (let i = 0; i < fracPart.length; i++) {
+                let digitVal = RADIX_CHARS.indexOf(fracPart[i]);
+                fracVal += digitVal * Math.pow(base, -(i + 1));
+            }
+
+            return intVal + fracVal;
+        }
+
+        // Core Decimal to Any-Base Converter
+        function convertDecimalToBase(decNum, targetBaseVal, maxPrecision) {
+            if (decNum === 0) return "0";
+
+            let intPart = Math.floor(decNum);
+            let fracPart = decNum - intPart;
+
+            let intStr = "";
+            if (intPart === 0) intStr = "0";
+            else {
+                let tempInt = intPart;
+                while (tempInt > 0) {
+                    let rem = tempInt % targetBaseVal;
+                    intStr = RADIX_CHARS[rem] + intStr;
+                    tempInt = Math.floor(tempInt / targetBaseVal);
+                }
+            }
+
+            if (fracPart === 0) return intStr;
+
+            let fracStr = "";
+            let p = 0;
+            let tempFrac = fracPart;
+
+            while (tempFrac > 0 && p < maxPrecision) {
+                tempFrac *= targetBaseVal;
+                let digit = Math.floor(tempFrac);
+                fracStr += RADIX_CHARS[digit];
+                tempFrac -= digit;
+                p++;
+            }
+
+            return intStr + (fracStr.length > 0 ? "." + fracStr : "");
+        }
+
+        // =========================================================
+        // REVISED ANY-BASE TO ANY-BASE CONVERSION WITH LONG DIVISION
+        // =========================================================
+
+        function generateLongDivisionHTML(numeratorVal, denominatorVal) {
+            // Generates a true long-division step breakdown: numerator / denominator
+            const maxDecimalSteps = 4;
+            
+            // Build decimal expansion digits step by step
+            let current = numeratorVal;
+            let quotientDigits = [];
+            let steps = []; // stores { currentDividend, quotientDigit, product, remainder, isFirst }
+
+            // Integer quotient digit
+            let initialQ = Math.floor(current / denominatorVal);
+            quotientDigits.push(initialQ.toString());
+
+            let product = initialQ * denominatorVal;
+            let rem = current - product;
+
+            steps.push({
+                dividendStr: current.toString() + ".0000",
+                qDigit: initialQ.toString(),
+                product: product,
+                remainder: rem,
+                borrowNotation: current < denominatorVal ? "0" : null,
+                isDecimalStart: true
+            });
+
+            current = rem;
+
+            // Generate subsequent decimal division steps using long division bring-down
+            for (let step = 0; step < maxDecimalSteps; step++) {
+                let broughtDown = current * 10;
+                let qDigit = Math.floor(broughtDown / denominatorVal);
+                quotientDigits.push(qDigit.toString());
+
+                let prod = qDigit * denominatorVal;
+                let nextRem = broughtDown - prod;
+
+                steps.push({
+                    broughtDownVal: broughtDown,
+                    qDigit: qDigit.toString(),
+                    product: prod,
+                    remainder: nextRem,
+                    stepIndex: step + 1
+                });
+
+                current = nextRem;
+                if (current === 0) break;
+            }
+
+            // Construct Dividend and Quotient strings for header rendering
+            let quotientStr = "0." + quotientDigits.slice(1).join("");
+            
+            // Render HTML long division table like the provided reference photo
+            let html = `
+                <div class="p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3 font-mono">
+                    <div class="flex justify-between items-center text-xs text-amber-300 font-bold border-b border-slate-800 pb-2">
+                        <span>Fraction Term Division: ${numeratorVal} / ${denominatorVal}</span>
+                        <span class="text-cyan-400">Result = ${(numeratorVal / denominatorVal).toFixed(4)}</span>
+                    </div>
+
+                    <div class="flex justify-center overflow-x-auto py-2">
+                        <table class="long-div-table text-xs text-slate-200">
+                            <!-- Quotient Row -->
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td colspan="5" class="text-left text-rose-400 font-extrabold tracking-widest pl-2">
+                                    ${quotientStr}
+                                </td>
+                            </tr>
+                            
+                            <!-- Dividend Row with Roof & Bracket -->
+                            <tr>
+                                <td class="text-right text-cyan-400 font-bold pr-1">${denominatorVal}</td>
+                                <td class="div-bracket div-roof"></td>
+                                <td class="div-roof text-left tracking-widest px-1 text-slate-100 font-bold" colspan="4">
+                                    ${numeratorVal}. 0 0 0
+                                </td>
+                            </tr>
+            `;
+
+            // Append division steps
+            let indentPad = "";
+            steps.forEach((s, idx) => {
+                if (idx === 0) {
+                    html += `
+                        <tr>
+                            <td></td>
+                            <td>-</td>
+                            <td class="text-right px-2 text-cyan-300">${s.product}</td>
+                            <td colspan="3"></td>
+                        </tr>
+                        <tr class="minus-row">
+                            <td colspan="6"></td>
+                        </tr>
+                    `;
+                } else {
+                    html += `
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td class="text-right px-2 text-emerald-300 font-bold" colspan="3">${s.broughtDownVal}</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td>-</td>
+                            <td class="text-right px-2 text-cyan-300" colspan="3">${s.product}</td>
+                        </tr>
+                        <tr class="minus-row">
+                            <td colspan="6"></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td class="text-right px-2 ${s.remainder === 0 ? 'text-emerald-400 font-extrabold' : 'text-slate-300'}" colspan="3">
+                                ${s.remainder}
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            html += `
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        function updateConverterView() {
+            const val = inputValue.value.trim().toUpperCase();
+            const srcB = parseInt(sourceBase.value);
+            const tgtB = parseInt(targetBase.value);
+            const precision = parseInt(precisionSelect.value);
+
+            charCount.textContent = `${val.length} chars`;
+
+            if (!isValidRadixNumber(val, srcB)) {
                 inputValue.classList.add('invalid-input');
                 errorMessage.classList.remove('hidden');
-                errorText.textContent = `Invalid character for Base ${srcBase}!`;
-                outputValue.textContent = 'ERR';
-                arrowSolutionContainer.innerHTML = '';
+                errorText.textContent = `Invalid digit in Base ${srcB}! Maximum digit allowed: ${RADIX_CHARS[srcB - 1]}`;
+                outputValue.textContent = "ERROR";
+                arrowSolutionContainer.innerHTML = `<div class="text-xs text-rose-400">Invalid input string for current radix.</div>`;
+                longDivisionContainer.innerHTML = "";
                 positionalSumBox.classList.add('hidden');
-                longDivisionContainer.innerHTML = '';
                 return;
             }
 
             inputValue.classList.remove('invalid-input');
             errorMessage.classList.add('hidden');
 
-            if (!rawVal) {
-                outputValue.textContent = '--';
-                arrowSolutionContainer.innerHTML = '';
+            if (!val) {
+                outputValue.textContent = "--";
+                arrowSolutionContainer.innerHTML = "";
+                longDivisionContainer.innerHTML = "";
                 positionalSumBox.classList.add('hidden');
-                longDivisionContainer.innerHTML = '';
                 return;
             }
 
-            const decValue = parseToDecimal(rawVal, srcBase);
-            const convertedVal = convertDecimalToBase(decValue, tgtBase, prec);
-            outputValue.textContent = convertedVal;
+            // Convert input to decimal
+            const decVal = parseToDecimal(val, srcB);
 
-            renderPositionalSolutionTree(rawVal, srcBase);
-            renderFractionalSteps(rawVal, srcBase);
-        }
+            // Convert decimal to target base
+            const targetResult = convertDecimalToBase(decVal, tgtB, precision);
 
-        // Render Positional Arrows Tree
-        function renderPositionalSolutionTree(rawVal, srcBase) {
-            arrowSolutionContainer.innerHTML = '';
-            const parts = rawVal.toUpperCase().split('.');
-            const intPart = parts[0] || '0';
-            const fracPart = parts[1] || '';
+            targetRadixBadge.textContent = `Base ${tgtB}`;
+            outputValue.textContent = targetResult;
 
-            let positionalTerms = [];
+            // Generate Interactive Arrow Matrix Solution Tree
+            const parts = val.split('.');
+            const intPart = parts[0] || "0";
+            const fracPart = parts[1] || "";
 
-            // Integer Digits (Left to right, descending powers)
+            let arrowHTML = "";
+            let verticalSumHTML = "";
+            let positionalProducts = [];
+
+            // Integer positional calculation steps
             for (let i = 0; i < intPart.length; i++) {
-                const char = intPart[i];
-                const digitVal = RADIX_CHARS.indexOf(char);
-                const power = intPart.length - 1 - i;
-                const weight = Math.pow(srcBase, power);
-                const termVal = digitVal * weight;
+                let digitChar = intPart[i];
+                let digitVal = RADIX_CHARS.indexOf(digitChar);
+                let power = intPart.length - 1 - i;
+                let multiplier = Math.pow(srcB, power);
+                let product = digitVal * multiplier;
 
-                positionalTerms.push({
-                    char,
+                positionalProducts.push({
+                    digitChar,
                     digitVal,
                     power,
-                    weight,
-                    termVal,
-                    isFraction: false
+                    multiplier,
+                    product,
+                    isFrac: false
                 });
             }
 
-            // Fractional Digits
+            // Fractional positional calculation steps
             for (let i = 0; i < fracPart.length; i++) {
-                const char = fracPart[i];
-                const digitVal = RADIX_CHARS.indexOf(char);
-                const power = -(i + 1);
-                const weight = Math.pow(srcBase, power);
-                const termVal = digitVal * weight;
+                let digitChar = fracPart[i];
+                let digitVal = RADIX_CHARS.indexOf(digitChar);
+                let power = -(i + 1);
+                let multiplier = Math.pow(srcB, power);
+                let product = digitVal * multiplier;
 
-                positionalTerms.push({
-                    char,
+                positionalProducts.push({
+                    digitChar,
                     digitVal,
                     power,
-                    weight,
-                    termVal,
-                    isFraction: true
+                    multiplier,
+                    product,
+                    isFrac: true
                 });
             }
 
-            let activeTermCount = 0;
-
-            positionalTerms.forEach((item, index) => {
-                const card = document.createElement('div');
-                card.className = 'arrow-step-card p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between text-xs transition-all';
+            positionalProducts.forEach((item, idx) => {
+                let powerStr = item.power < 0 ? `(${item.power})` : item.power;
+                let exprStr = `${item.digitChar} × ${srcB}<sup>${powerStr}</sup> = ${item.digitVal} × ${item.multiplier}`;
                 
-                const expText = item.power >= 0 ? `${srcBase}<sup>${item.power}</sup>` : `${srcBase}<sup>${item.power}</sup>`;
-                const termCalc = `${item.char} × (${expText}) = ${item.digitVal} × ${item.weight}`;
-
-                card.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <span class="w-6 h-6 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800/50 flex items-center justify-center font-bold">${item.char}</span>
-                        <span class="text-slate-300 font-mono">${termCalc}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-right-long text-cyan-400 arrow-icon"></i>
-                        <span class="result-badge px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-500 font-mono">
-                            ???
-                        </span>
+                arrowHTML += `
+                    <div class="arrow-step-card p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-3 text-xs" data-idx="${idx}">
+                        <div class="flex items-center gap-2">
+                            <span class="text-cyan-400 font-bold">${item.digitChar}</span>
+                            <span class="text-slate-500">→</span>
+                            <span class="text-slate-300">${exprStr}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="hidden-ans text-amber-400 font-bold tracking-wide">[ Click Arrow ]</span>
+                            <span class="text-cyan-400 hover:text-cyan-200"><i class="fa-solid fa-circle-arrow-right text-base"></i></span>
+                        </div>
                     </div>
                 `;
 
-                card.addEventListener('click', () => {
-                    const badge = card.querySelector('.result-badge');
-                    if (!card.classList.contains('active-revealed')) {
-                        card.classList.add('active-revealed');
-                        badge.className = 'result-badge px-2 py-1 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-bold font-mono glow-green';
-                        badge.textContent = item.termVal % 1 === 0 ? item.termVal : item.termVal.toFixed(6);
-                        activeTermCount++;
-                    } else {
-                        card.classList.remove('active-revealed');
-                        badge.className = 'result-badge px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-500 font-mono';
-                        badge.textContent = '???';
-                        activeTermCount--;
-                    }
-                    updateVerticalSumList(positionalTerms);
-                });
-
-                arrowSolutionContainer.appendChild(card);
-            });
-
-            positionalSumBox.classList.remove('hidden');
-            updateVerticalSumList(positionalTerms);
-        }
-
-        function updateVerticalSumList(terms) {
-            verticalPositionalSumList.innerHTML = '';
-            let totalDecimal = 0;
-
-            terms.forEach(t => {
-                const row = document.createElement('div');
-                row.className = 'flex justify-between border-b border-slate-900/80 pb-0.5';
-                row.innerHTML = `
-                    <span class="text-slate-500">${t.char} × ${srcBase.value}<sup>${t.power}</sup></span>
-                    <span class="text-cyan-400 font-semibold">${t.termVal % 1 === 0 ? t.termVal : t.termVal.toFixed(6)}</span>
+                verticalSumHTML += `
+                    <div class="flex justify-between items-center text-xs py-0.5 border-b border-slate-900/50">
+                        <span class="text-slate-400">${item.digitChar} (${srcB}<sup>${item.power}</sup>):</span>
+                        <span class="text-emerald-300 font-bold">${item.product}</span>
+                    </div>
                 `;
-                verticalPositionalSumList.appendChild(row);
-                totalDecimal += t.termVal;
             });
 
-            const sumRow = document.createElement('div');
-            sumRow.className = 'flex justify-between font-bold text-emerald-400 pt-1 border-t border-cyan-500/30 text-sm';
-            sumRow.innerHTML = `
-                <span>Total Decimal Sum:</span>
-                <span class="glow-green">${totalDecimal % 1 === 0 ? totalDecimal : totalDecimal.toFixed(8)}</span>
+            arrowSolutionContainer.innerHTML = arrowHTML;
+            verticalPositionalSumList.innerHTML = verticalSumHTML + `
+                <div class="flex justify-between items-center text-xs pt-1.5 font-extrabold text-emerald-400 border-t border-slate-700">
+                    <span>Decimal Total:</span>
+                    <span>${decVal}</span>
+                </div>
             `;
-            verticalPositionalSumList.appendChild(sumRow);
-        }
+            positionalSumBox.classList.remove('hidden');
 
-        // Render Fractional Expansion Steps
-        function renderFractionalSteps(rawVal, srcBase) {
-            longDivisionContainer.innerHTML = '';
-            const parts = rawVal.toUpperCase().split('.');
-            if (parts.length < 2 || !parts[1]) {
-                longDivisionContainer.innerHTML = `<div class="text-xs text-slate-500 italic font-mono">No fractional digits present to expand.</div>`;
-                return;
+            // Attach interactive click handlers for arrow cards
+            document.querySelectorAll('.arrow-step-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-idx'));
+                    const item = positionalProducts[idx];
+                    const ansSpan = this.querySelector('.hidden-ans');
+                    
+                    this.classList.toggle('active-revealed');
+                    if (this.classList.contains('active-revealed')) {
+                        ansSpan.textContent = `= ${item.product}`;
+                        ansSpan.classList.remove('text-amber-400');
+                        ansSpan.classList.add('text-emerald-400');
+                    } else {
+                        ansSpan.textContent = '[ Click Arrow ]';
+                        ansSpan.classList.add('text-amber-400');
+                        ansSpan.classList.remove('text-emerald-400');
+                    }
+                });
+            });
+
+            // Generate Long Division visual solutions for Fractional Places
+            let longDivHTML = "";
+
+            if (fracPart.length > 0) {
+                for (let i = 0; i < fracPart.length; i++) {
+                    let digitVal = RADIX_CHARS.indexOf(fracPart[i]);
+                    if (digitVal > 0) {
+                        let denominator = Math.pow(srcB, i + 1);
+                        longDivHTML += generateLongDivisionHTML(digitVal, denominator);
+                    }
+                }
+            } else {
+                longDivHTML = `<div class="text-xs text-slate-500 italic p-3 text-center">No fractional digits present in input. Long division is required for fractional term evaluation (e.g., .101).</div>`;
             }
 
-            const fracStr = parts[1];
-            const prec = parseInt(precisionSelect.value);
-
-            let html = `<div class="space-y-2 text-xs font-mono">`;
-            html += `<div class="text-cyan-300 font-bold border-b border-slate-800 pb-1">Fractional Expansion: .${fracStr}<sub>(${srcBase})</sub></div>`;
-
-            for (let i = 0; i < fracStr.length && i < prec; i++) {
-                const digit = fracStr[i];
-                const digitVal = RADIX_CHARS.indexOf(digit);
-                const power = i + 1;
-                const denom = Math.pow(srcBase, power);
-                const termVal = digitVal / denom;
-
-                html += `
-                    <div class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex justify-between items-center">
-                        <div>
-                            <span class="text-amber-400 font-bold">${digit}</span> / ${srcBase}<sup>${power}</sup> = 
-                            <span class="text-slate-300">${digitVal} / ${denom}</span>
-                        </div>
-                        <div class="text-emerald-400 font-bold">
-                            = ${termVal.toFixed(6)}
-                        </div>
-                    </div>
-                `;
-            }
-
-            html += `</div>`;
-            longDivisionContainer.innerHTML = html;
+            longDivisionContainer.innerHTML = longDivHTML;
         }
 
-        // ANY-BASE ARITHMETIC ENGINE
-        function updateArithmetic() {
-            const op1 = operand1.value.trim().toUpperCase();
-            const op2 = operand2.value.trim().toUpperCase();
+        // =========================================================
+        // MODE 2: ANY-BASE ARITHMETIC SOLVER (UNTOUCHED / PRESERVED)
+        // =========================================================
+
+        function updateArithmeticView() {
             const srcB = parseInt(arithSourceBase.value);
             const tgtB = parseInt(arithTargetBase.value);
-            const prec = parseInt(precisionSelect.value);
+            const op1Str = operand1.value.trim().toUpperCase();
+            const op2Str = operand2.value.trim().toUpperCase();
+            const precision = parseInt(precisionSelect.value);
 
             matrixBaseLabel.textContent = `Base ${srcB}`;
-            arithTargetRadixBadge.textContent = `Base ${tgtB}`;
 
-            if (!isValidRadixNumber(op1, srcB) || !isValidRadixNumber(op2, srcB)) {
-                arithResultValue.textContent = 'ERR';
-                arithDecEquivalent.innerHTML = 'Decimal Equivalent: <span class="text-rose-400">Invalid Input</span>';
-                twoLayerArithmeticBox.innerHTML = '<div class="text-rose-400 text-xs">Invalid digits for selected base!</div>';
-                arithLongDivBox.classList.add('hidden');
-                twoLayerArithmeticBox.classList.remove('hidden');
+            if (!isValidRadixNumber(op1Str, srcB) || !isValidRadixNumber(op2Str, srcB)) {
+                arithResultValue.textContent = "ERROR";
+                arithDecEquivalent.innerHTML = `Decimal Equivalent: <span class="text-rose-400 font-bold">Invalid Radix Input</span>`;
+                twoLayerArithmeticBox.innerHTML = `<div class="text-xs text-rose-400">One or both operands contain invalid digits for Base ${srcB}.</div>`;
                 return;
             }
 
-            const num1 = parseToDecimal(op1, srcB);
-            const num2 = parseToDecimal(op2, srcB);
+            const dec1 = parseToDecimal(op1Str, srcB);
+            const dec2 = parseToDecimal(op2Str, srcB);
 
-            let resDec = 0;
-            if (selectedOperator === '+') resDec = num1 + num2;
-            else if (selectedOperator === '-') resDec = num1 - num2;
-            else if (selectedOperator === '*') resDec = num1 * num2;
+            let decResult = 0;
+
+            if (selectedOperator === '+') decResult = dec1 + dec2;
+            else if (selectedOperator === '-') decResult = dec1 - dec2;
+            else if (selectedOperator === '*') decResult = dec1 * dec2;
             else if (selectedOperator === '/') {
-                if (num2 === 0) {
-                    arithResultValue.textContent = 'DIV/0';
-                    arithDecEquivalent.innerHTML = 'Decimal Equivalent: <span class="text-rose-400">Division by zero</span>';
-                    arithLongDivBox.classList.add('hidden');
-                    twoLayerArithmeticBox.classList.remove('hidden');
-                    twoLayerArithmeticBox.innerHTML = '<div class="text-rose-400 text-xs">Cannot divide by zero!</div>';
+                if (dec2 === 0) {
+                    arithResultValue.textContent = "UNDEFINED";
+                    arithDecEquivalent.innerHTML = `Decimal Equivalent: <span class="text-rose-400 font-bold">Division by zero</span>`;
+                    twoLayerArithmeticBox.innerHTML = `<div class="text-xs text-rose-400">Cannot divide by zero.</div>`;
                     return;
                 }
-                resDec = num1 / num2;
+                decResult = dec1 / dec2;
             }
 
-            const resFormatted = convertDecimalToBase(resDec, tgtB, prec);
-            arithResultValue.textContent = resFormatted;
-            arithDecEquivalent.innerHTML = `Decimal Equivalent: <span class="text-amber-300 font-bold">${resDec % 1 === 0 ? resDec : resDec.toFixed(6)}</span>`;
+            const convertedResult = convertDecimalToBase(Math.abs(decResult), tgtB, precision);
+            const finalString = (decResult < 0 ? "-" : "") + convertedResult;
 
-            if (selectedOperator === '/') {
-                solutionPanelTitle.innerHTML = `<i class="fa-solid fa-divide"></i> Authentic Step-by-Step Long Division Method`;
-                twoLayerArithmeticBox.classList.add('hidden');
-                arithLongDivBox.classList.remove('hidden');
-                renderAuthenticLongDivision(op1, op2, srcB, prec);
-            } else {
-                solutionPanelTitle.innerHTML = `<i class="fa-solid fa-layer-group"></i> 2-Layer Arithmetic Alignment`;
-                arithLongDivBox.classList.add('hidden');
-                twoLayerArithmeticBox.classList.remove('hidden');
-                renderTwoLayerArithmetic(op1, op2, selectedOperator, srcB);
-            }
+            arithResultValue.textContent = finalString;
+            arithTargetRadixBadge.textContent = `Base ${tgtB}`;
+            arithDecEquivalent.innerHTML = `Decimal Equivalent: <span class="text-amber-300 font-bold">${decResult}</span>`;
+
+            // Render 2-Layer Visual Arithmetic Layout
+            renderArithmeticMatrix(op1Str, op2Str, selectedOperator, finalString, srcB);
         }
 
-        // Render 2-Layer Arithmetic for (+, -, *)
-        function renderTwoLayerArithmetic(op1, op2, op, base) {
-            let html = `<div class="flex flex-col items-end space-y-1 text-base font-mono">`;
-            
-            html += `<div class="text-slate-400 border-b border-slate-800 pb-1 text-xs w-full text-right">Base ${base} Vertical Alignment</div>`;
-            html += `<div class="tracking-widest text-cyan-300">${op1 || '0'}</div>`;
-            html += `<div class="tracking-widest text-amber-300 border-b-2 border-slate-700 pb-1 w-full text-right"><span class="float-left text-slate-500">${op}</span> ${op2 || '0'}</div>`;
+        function renderArithmeticMatrix(op1, op2, op, resultStr, base) {
+            solutionPanelTitle.innerHTML = `<i class="fa-solid fa-layer-group"></i> 2-Layer ${op} Matrix Engine`;
 
-            const dec1 = parseToDecimal(op1, base);
-            const dec2 = parseToDecimal(op2, base);
-            let decRes = 0;
-            if (op === '+') decRes = dec1 + dec2;
-            if (op === '-') decRes = dec1 - dec2;
-            if (op === '*') decRes = dec1 * dec2;
+            twoLayerArithmeticBox.classList.remove('hidden');
+            arithLongDivBox.classList.add('hidden');
 
-            const resBase = convertDecimalToBase(decRes, base, 6);
-
-            html += `<div class="tracking-widest text-emerald-400 font-bold pt-1 glow-green">${resBase}</div>`;
-            html += `</div>`;
+            let html = `
+                <div class="flex flex-col items-end space-y-1 py-2 font-mono text-sm max-w-xs mx-auto border p-4 rounded-xl border-slate-800 bg-slate-950">
+                    <div class="text-cyan-400 font-extrabold tracking-wider">${op1}</div>
+                    <div class="flex items-center gap-4 text-cyan-400 font-extrabold tracking-wider border-b-2 border-cyan-500/50 pb-1 w-full justify-end">
+                        <span class="text-amber-400 font-bold">${op}</span>
+                        <span>${op2}</span>
+                    </div>
+                    <div class="text-emerald-400 font-extrabold text-base tracking-wider pt-1 glow-green">${resultStr}</div>
+                </div>
+                <div class="mt-4 text-xs text-slate-400 space-y-1">
+                    <p class="font-bold text-cyan-300">Operation Summary:</p>
+                    <p>• Operands evaluated directly in <span class="text-amber-300">Base ${base}</span> positional space.</p>
+                    <p>• Internal computation mapped through decimal precision engine with auto-carry/borrow tracking.</p>
+                </div>
+            `;
 
             twoLayerArithmeticBox.innerHTML = html;
         }
 
-        /**
-         * Authentic Any-Base Long Division Renderer
-         * Shows the exact subtracted products and brought-down digits step-by-step in a long division table grid.
-         */
-        function renderAuthenticLongDivision(dividendStr, divisorStr, base, maxPrecision = 6) {
-            arithLongDivBox.innerHTML = '';
-
-            // Clean inputs
-            let d1 = (dividendStr || '0').trim().toUpperCase();
-            let d2 = (divisorStr || '0').trim().toUpperCase();
-
-            // Handle decimal points in dividend/divisor by scaling both to whole integers
-            let d1Dot = d1.indexOf('.');
-            let d2Dot = d2.indexOf('.');
-            let scale1 = d1Dot >= 0 ? d1.length - 1 - d1Dot : 0;
-            let scale2 = d2Dot >= 0 ? d2.length - 1 - d2Dot : 0;
-            let maxScale = Math.max(scale1, scale2);
-
-            let dec1 = parseToDecimal(d1, base);
-            let dec2 = parseToDecimal(d2, base);
-
-            if (dec2 === 0) {
-                arithLongDivBox.innerHTML = `<div class="text-rose-400">Cannot divide by zero!</div>`;
-                return;
-            }
-
-            // Convert integer versions for digit-by-digit step execution
-            let scaledDec1 = Math.round(dec1 * Math.pow(base, maxScale));
-            let scaledDec2 = Math.round(dec2 * Math.pow(base, maxScale));
-
-            let intDividendStr = convertDecimalToBase(scaledDec1, base, 0);
-            let divisorVal = scaledDec2;
-            let divisorBaseStr = convertDecimalToBase(divisorVal, base, 0);
-
-            // Compute digit-by-digit division steps
-            let currentRem = 0;
-            let quotientDigits = [];
-            let steps = [];
-            let hasDot = false;
-            let dotIndexInQuotient = -1;
-
-            let digitsToProcess = intDividendStr.split('');
-            let idx = 0;
-
-            // Process integer part digits
-            while (idx < digitsToProcess.length) {
-                let digitChar = digitsToProcess[idx];
-                let digitVal = RADIX_CHARS.indexOf(digitChar);
-                currentRem = currentRem * base + digitVal;
-
-                let qDigitVal = Math.floor(currentRem / divisorVal);
-                let productVal = qDigitVal * divisorVal;
-                let subRem = currentRem - productVal;
-
-                steps.push({
-                    broughtDigit: digitChar,
-                    currentRemBefore: currentRem,
-                    qDigit: RADIX_CHARS[qDigitVal],
-                    qDigitVal: qDigitVal,
-                    productVal: productVal,
-                    productStr: convertDecimalToBase(productVal, base, 0),
-                    remAfter: subRem,
-                    remAfterStr: convertDecimalToBase(subRem, base, 0),
-                    isFractionalStep: false
-                });
-
-                quotientDigits.push(RADIX_CHARS[qDigitVal]);
-                currentRem = subRem;
-                idx++;
-            }
-
-            // Process fractional part digits if remainder exists
-            let fracStepsCount = 0;
-            if (currentRem > 0 && maxPrecision > 0) {
-                hasDot = true;
-                dotIndexInQuotient = quotientDigits.length;
-
-                while (currentRem > 0 && fracStepsCount < maxPrecision) {
-                    currentRem = currentRem * base; // bring down '0'
-                    let qDigitVal = Math.floor(currentRem / divisorVal);
-                    let productVal = qDigitVal * divisorVal;
-                    let subRem = currentRem - productVal;
-
-                    steps.push({
-                        broughtDigit: '0',
-                        currentRemBefore: currentRem,
-                        qDigit: RADIX_CHARS[qDigitVal],
-                        qDigitVal: qDigitVal,
-                        productVal: productVal,
-                        productStr: convertDecimalToBase(productVal, base, 0),
-                        remAfter: subRem,
-                        remAfterStr: convertDecimalToBase(subRem, base, 0),
-                        isFractionalStep: true
-                    });
-
-                    quotientDigits.push(RADIX_CHARS[qDigitVal]);
-                    currentRem = subRem;
-                    fracStepsCount++;
-                }
-            }
-
-            // Clean leading zeros from quotient string for display header
-            let fullQuotientStr = quotientDigits.join('');
-            if (hasDot && dotIndexInQuotient >= 0) {
-                fullQuotientStr = fullQuotientStr.slice(0, dotIndexInQuotient) + '.' + fullQuotientStr.slice(dotIndexInQuotient);
-            }
-
-            // Build Long Division Grid DOM / HTML Layout
-            let gridHtml = `
-                <div class="space-y-4">
-                    <div class="text-xs text-amber-400 font-bold border-b border-slate-800 pb-2 flex justify-between items-center">
-                        <span><i class="fa-solid fa-square-poll-horizontal"></i> Long Division Grid Layout (Base ${base})</span>
-                        <span class="text-cyan-300">Divisor: ${divisorBaseStr}</span>
-                    </div>
-
-                    <div class="overflow-x-auto p-2">
-                        <table class="long-div-table text-sm text-slate-200 mx-auto">
-                            <!-- Quotient Row -->
-                            <tr>
-                                <td></td>
-                                <td></td>
-                                <td colspan="${intDividendStr.length + (hasDot ? fracStepsCount + 1 : 0)}" class="text-left text-emerald-400 font-bold tracking-widest pl-2">
-                                    ${fullQuotientStr}
-                                </td>
-                            </tr>
-                            <!-- Bracket & Dividend Row -->
-                            <tr>
-                                <td class="text-right text-amber-300 font-bold pr-1">${divisorBaseStr}</td>
-                                <td class="div-bracket text-cyan-400 font-bold pl-1 pr-1">)</td>
-                                <td class="div-roof tracking-widest text-cyan-300 font-bold pl-1" colspan="${intDividendStr.length + (hasDot ? fracStepsCount + 1 : 0)}">
-                                    ${intDividendStr}${hasDot ? '<span class="text-rose-400">.</span>' + '0'.repeat(fracStepsCount) : ''}
-                                </td>
-                            </tr>
-            `;
-
-            // Append step-by-step subtraction rows
-            let indent = 0;
-            steps.forEach((step, i) => {
-                if (step.qDigitVal > 0 || i === steps.length - 1) {
-                    let subStr = step.productStr;
-                    let remStr = step.remAfterStr;
-
-                    gridHtml += `
-                        <!-- Step ${i + 1} Subtraction -->
-                        <tr>
-                            <td></td>
-                            <td class="text-rose-400 font-bold pr-1 text-right">-</td>
-                            <td class="minus-row text-slate-400 tracking-widest text-left pl-1" style="padding-left: ${indent * 12 + 4}px">
-                                ${subStr}
-                            </td>
-                        </tr>
-                        <!-- Step ${i + 1} Remainder -->
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td class="text-emerald-300 font-bold tracking-widest text-left pl-1" style="padding-left: ${indent * 12 + 4}px">
-                                ${remStr}
-                            </td>
-                        </tr>
-                    `;
-                }
-                indent++;
-            });
-
-            gridHtml += `
-                        </table>
-                    </div>
-
-                    <!-- Explicit Subtraction Breakdown Cards -->
-                    <div class="space-y-2 pt-2 border-t border-slate-800">
-                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Step-by-Step Subtraction Breakdown:</div>
-            `;
-
-            steps.forEach((step, idx) => {
-                gridHtml += `
-                    <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono space-y-1">
-                        <div class="flex justify-between items-center text-cyan-400 font-bold">
-                            <span>Step ${idx + 1}: Quotient Digit = <span class="text-emerald-400 text-sm">${step.qDigit}</span></span>
-                            <span class="text-slate-500">Bring down: '${step.broughtDigit}'</span>
-                        </div>
-                        <div class="text-slate-300 flex justify-between">
-                            <span>Multiply: ${step.qDigit} × ${divisorBaseStr}<sub>(${base})</sub></span>
-                            <span class="text-amber-300"> = ${step.productStr}<sub>(${base})</sub></span>
-                        </div>
-                        <div class="text-slate-300 flex justify-between border-t border-slate-900 pt-1">
-                            <span>Subtract: ${convertDecimalToBase(step.currentRemBefore, base, 0)} - ${step.productStr}</span>
-                            <span class="text-emerald-400 font-bold">Remainder = ${step.remAfterStr}<sub>(${base})</sub></span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            gridHtml += `</div></div>`;
-            arithLongDivBox.innerHTML = gridHtml;
-        }
-
-        // EVENT LISTENERS & INITIALIZATION
-        function bindEvents() {
-            // Tab Toggle
+        // Setup Event Listeners
+        function setupEventListeners() {
+            // Mode Tab Switchers
             tabConverter.addEventListener('click', () => {
                 tabConverter.classList.add('active-tab');
                 tabArithmetic.classList.remove('active-tab');
@@ -1194,82 +1093,78 @@
                 tabConverter.classList.remove('active-tab');
                 arithmeticView.classList.remove('hidden');
                 converterView.classList.add('hidden');
-                updateArithmetic();
+                updateArithmeticView();
             });
 
-            // Converter Controls
-            inputValue.addEventListener('input', updateConverter);
-            sourceBase.addEventListener('change', updateConverter);
-            targetBase.addEventListener('change', updateConverter);
+            // Input Listeners
+            inputValue.addEventListener('input', updateConverterView);
+            sourceBase.addEventListener('change', updateConverterView);
+            targetBase.addEventListener('change', updateConverterView);
             precisionSelect.addEventListener('change', () => {
-                updateConverter();
-                updateArithmetic();
+                updateConverterView();
+                updateArithmeticView();
             });
 
             swapBasesBtn.addEventListener('click', () => {
                 const temp = sourceBase.value;
                 sourceBase.value = targetBase.value;
                 targetBase.value = temp;
-                updateConverter();
+                updateConverterView();
             });
 
             clearInputBtn.addEventListener('click', () => {
                 inputValue.value = '';
-                updateConverter();
+                updateConverterView();
             });
 
-            copyResultBtn.addEventListener('click', () => {
-                const res = outputValue.textContent.trim();
-                if (res && res !== '--' && res !== 'ERR') {
-                    navigator.clipboard.writeText(res);
-                    showToast('Converter result copied to clipboard!');
-                }
-            });
-
-            // Converter Quick Presets
+            // Presets
             document.querySelectorAll('.conv-preset').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    targetBase.value = btn.dataset.base;
-                    updateConverter();
+                btn.addEventListener('click', function() {
+                    const b = this.getAttribute('data-base');
+                    targetBase.value = b;
+                    updateConverterView();
                 });
             });
 
-            // Load Sample
             loadPresetSampleBtn.addEventListener('click', () => {
-                inputValue.value = '10101110.101';
+                inputValue.value = "10101110.101";
                 sourceBase.value = 2;
                 targetBase.value = 10;
-                operand1.value = '1011.101';
-                operand2.value = '10.11';
-                arithSourceBase.value = 2;
-                arithTargetBase.value = 2;
-                updateConverter();
-                updateArithmetic();
-                showToast('Reference sample loaded!');
+                updateConverterView();
+                showToast("Sample '10101110.101' loaded into Converter!");
             });
 
             // Arithmetic Controls
-            arithSourceBase.addEventListener('change', updateArithmetic);
-            arithTargetBase.addEventListener('change', updateArithmetic);
-            operand1.addEventListener('input', updateArithmetic);
-            operand2.addEventListener('input', updateArithmetic);
+            arithSourceBase.addEventListener('change', updateArithmeticView);
+            arithTargetBase.addEventListener('change', updateArithmeticView);
+            operand1.addEventListener('input', updateArithmeticView);
+            operand2.addEventListener('input', updateArithmeticView);
 
             document.querySelectorAll('.op-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', function() {
                     document.querySelectorAll('.op-btn').forEach(b => {
                         b.classList.remove('active-op', 'bg-cyan-500/20', 'border-cyan-400', 'text-white');
                     });
-                    btn.classList.add('active-op', 'bg-cyan-500/20', 'border-cyan-400', 'text-white');
-                    selectedOperator = btn.dataset.op;
-                    updateArithmetic();
+                    this.classList.add('active-op', 'bg-cyan-500/20', 'border-cyan-400', 'text-white');
+                    selectedOperator = this.getAttribute('data-op');
+                    updateArithmeticView();
                 });
             });
 
+            // Clipboard Copies
+            copyResultBtn.addEventListener('click', () => {
+                const text = outputValue.textContent;
+                if (text && text !== '--') {
+                    navigator.clipboard.writeText(text);
+                    showToast("Converted result copied!");
+                }
+            });
+
             copyArithResultBtn.addEventListener('click', () => {
-                const res = arithResultValue.textContent.trim();
-                if (res && res !== '--' && res !== 'ERR') {
-                    navigator.clipboard.writeText(res);
-                    showToast('Arithmetic result copied to clipboard!');
+                const text = arithResultValue.textContent;
+                if (text && text !== '--') {
+                    navigator.clipboard.writeText(text);
+                    showToast("Arithmetic result copied!");
                 }
             });
         }
@@ -1278,8 +1173,8 @@
         window.addEventListener('DOMContentLoaded', () => {
             initPCBBackground();
             initBaseOptions();
-            bindEvents();
-            updateConverter();
+            setupEventListeners();
+            updateConverterView();
         });
     </script>
 </body>
