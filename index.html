@@ -1144,24 +1144,203 @@
 
         // Render Long Division Matrix for ÷
         function renderArithmeticLongDivision(op1, op2, base, decResult) {
+            // Build a true long-division layout with subtraction rows under the dividend.
+            // The rest of the arithmetic engine remains unchanged.
+            const cleanOp1 = op1.trim().toUpperCase();
+            const cleanOp2 = op2.trim().toUpperCase();
+
+            const toScaledInteger = (value) => {
+                const parts = value.split('.');
+                const fracLen = parts[1] ? parts[1].length : 0;
+                const scale = Math.pow(base, fracLen);
+                const intPart = parts[0] || '0';
+                const fracPart = parts[1] || '';
+                let scaled = 0;
+
+                for (let i = 0; i < intPart.length; i++) {
+                    scaled = scaled * base + RADIX_CHARS.indexOf(intPart[i]);
+                }
+
+                for (let i = 0; i < fracPart.length; i++) {
+                    scaled = scaled * base + RADIX_CHARS.indexOf(fracPart[i]);
+                }
+
+                return { value: scaled, scale, fracLen };
+            };
+
+            const toBaseInt = (value) => {
+                if (value === 0) return '0';
+                let n = Math.abs(Math.floor(value));
+                let result = '';
+
+                while (n > 0) {
+                    result = RADIX_CHARS[n % base] + result;
+                    n = Math.floor(n / base);
+                }
+
+                return result;
+            };
+
+            const dividendData = toScaledInteger(cleanOp1);
+            const divisorData = toScaledInteger(cleanOp2);
+            const commonScalePower = Math.max(dividendData.fracLen, divisorData.fracLen);
+            const dividendInt = dividendData.value * Math.pow(base, commonScalePower - dividendData.fracLen);
+            const divisorInt = divisorData.value * Math.pow(base, commonScalePower - divisorData.fracLen);
+
+            let quotientInt = divisorInt !== 0 ? Math.floor(dividendInt / divisorInt) : 0;
+            let remainder = divisorInt !== 0 ? dividendInt % divisorInt : 0;
+
+            const maxFractionDigits = Math.max(4, parseInt(precisionSelect.value) || 8);
+            const divisionSteps = [];
+
+            // Integer-part long division steps.
+            if (divisorInt > 0 && dividendInt >= divisorInt) {
+                let current = 0;
+                const dividendDigits = toBaseInt(dividendInt);
+
+                for (let i = 0; i < dividendDigits.length; i++) {
+                    current = current * base + RADIX_CHARS.indexOf(dividendDigits[i]);
+
+                    if (current >= divisorInt) {
+                        const qDigit = Math.floor(current / divisorInt);
+                        const product = qDigit * divisorInt;
+                        const remainderAfter = current - product;
+
+                        divisionSteps.push({
+                            current: current,
+                            product: product,
+                            remainder: remainderAfter,
+                            quotientDigit: RADIX_CHARS[qDigit],
+                            fractional: false
+                        });
+
+                        current = remainderAfter;
+                    } else if (i === dividendDigits.length - 1) {
+                        divisionSteps.push({
+                            current: current,
+                            product: 0,
+                            remainder: current,
+                            quotientDigit: '0',
+                            fractional: false
+                        });
+                    }
+                }
+            } else {
+                divisionSteps.push({
+                    current: dividendInt,
+                    product: 0,
+                    remainder: dividendInt,
+                    quotientDigit: '0',
+                    fractional: false
+                });
+            }
+
+            // Fractional-part long division steps.
+            let fracRemainder = remainder;
+            let fracDigits = '';
+
+            if (divisorInt > 0 && fracRemainder !== 0) {
+                for (let i = 0; i < maxFractionDigits; i++) {
+                    fracRemainder *= base;
+
+                    const qDigit = Math.floor(fracRemainder / divisorInt);
+                    const product = qDigit * divisorInt;
+                    const remainderAfter = fracRemainder - product;
+
+                    fracDigits += RADIX_CHARS[qDigit];
+
+                    divisionSteps.push({
+                        current: fracRemainder,
+                        product: product,
+                        remainder: remainderAfter,
+                        quotientDigit: RADIX_CHARS[qDigit],
+                        fractional: true
+                    });
+
+                    fracRemainder = remainderAfter;
+
+                    if (fracRemainder === 0) break;
+                }
+            }
+
+            let quotientDisplay = decimalToTargetBase(decResult, base, maxFractionDigits);
+            const quotientParts = quotientDisplay.split('.');
+            const quotientInteger = quotientParts[0] || '0';
+            const quotientFraction = quotientParts[1] || '';
+
+            // Convert the scaled subtraction values back to the visible base.
+            // For the fractional rows, current/product are the values brought down
+            // during the long-division process.
+            const dividendDisplay = cleanOp1;
+            const divisorDisplay = cleanOp2;
+
+            const columnCount = Math.max(
+                cleanOp1.length,
+                quotientDisplay.length,
+                toBaseInt(Math.max(dividendInt, divisorInt)).length + 2,
+                6
+            );
+
+            const alignRight = (value) => {
+                const text = String(value);
+                return '&nbsp;'.repeat(Math.max(0, columnCount - text.length)) + text;
+            };
+
+            let rowsHTML = '';
+
+            divisionSteps.forEach((step, index) => {
+                const currentDisplay = toBaseInt(step.current);
+                const productDisplay = toBaseInt(step.product);
+                const remainderDisplay = toBaseInt(step.remainder);
+
+                rowsHTML += `
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td class="text-slate-300 text-right" colspan="${columnCount}">
+                            ${index === 0 ? '' : ''}${alignRight(currentDisplay)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td class="minus-row text-amber-300 text-right" colspan="${columnCount}">
+                            − ${alignRight(productDisplay)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td class="text-emerald-400 text-right" colspan="${columnCount}">
+                            ${alignRight(remainderDisplay)}
+                        </td>
+                    </tr>
+                `;
+            });
+
             let html = `
                 <div class="space-y-3">
                     <div class="text-xs text-slate-400 border-b border-slate-800 pb-1">
                         Long Division Formatting (Base ${base}):
                     </div>
-                    
+
                     <div class="flex justify-center my-4 overflow-x-auto">
                         <table class="long-div-table text-cyan-300">
                             <tr>
                                 <td></td>
                                 <td></td>
-                                <td class="text-emerald-400 font-extrabold border-b-2 border-cyan-400" colspan="${op1.length}">${decimalToTargetBase(decResult, base, 4)}</td>
+                                <td class="text-emerald-400 font-extrabold border-b-2 border-cyan-400" colspan="${columnCount}">
+                                    ${quotientDisplay}
+                                </td>
                             </tr>
                             <tr>
-                                <td class="text-amber-400 pr-1">${op2}</td>
+                                <td class="text-amber-400 pr-1">${divisorDisplay}</td>
                                 <td class="div-bracket pr-2"></td>
-                                <td class="div-roof tracking-widest" colspan="${op1.length}">${op1}</td>
+                                <td class="div-roof tracking-widest text-right" colspan="${columnCount}">
+                                    ${dividendDisplay}
+                                </td>
                             </tr>
+                            ${rowsHTML}
                         </table>
                     </div>
 
