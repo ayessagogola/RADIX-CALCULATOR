@@ -332,9 +332,9 @@
                 <div class="circuit-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-800 pb-2">
                         <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                            <i class="fa-solid fa-arrow-pointer"></i> Interactive Positional Solution Tree
+                            <i class="fa-solid fa-diagram-project"></i> Positional Solution Tree
                         </h3>
-                        <span class="text-xs text-slate-400 font-mono">Click arrows to reveal answers</span>
+                        <span class="text-xs text-slate-400 font-mono"></span>
                     </div>
 
                     <div class="text-xs text-slate-400">
@@ -864,9 +864,8 @@
                 const prodVal = entry.digitVal * Math.pow(base, entry.power);
                 sumProductsList.push({ val: prodVal, digitChar: entry.char, power: entry.power });
 
-                // Right-angled L-shaped arrow
+                // Restore the visible L-shaped arrow from each digit to its solution row.
                 const pathData = `M ${digitX} ${topMargin - 5} V ${targetY} H ${rightX - 10}`;
-
                 svgContent += `
                     <path d="${pathData}" fill="none" stroke="#00f3ff" stroke-width="1.8" opacity="0.85" marker-end="url(#arrowhead)" />
                 `;
@@ -1130,20 +1129,130 @@
 
         // Render 2-Layer Alignment Matrix for +, -, *
         function renderTwoLayerArithmeticMatrix(op1, op2, op, resultStr, base) {
-            const maxLen = Math.max(op1.length, op2.length, resultStr.length) + 2;
+            // Addition/subtraction keep the original compact matrix.
+            // Multiplication uses a true vertical multiplication layout with
+            // partial products and a final addition line underneath.
+            if (op !== '*') {
+                const maxLen = Math.max(op1.length, op2.length, resultStr.length) + 2;
+                const padStr = (s, len) => s.padStart(len, ' ');
 
-            const padStr = (s, len) => s.padStart(len, ' ');
-
-            let html = `
-                <div class="text-xs text-slate-400 mb-2 border-b border-slate-800 pb-1">
-                    Positional Column Alignment (Base ${base}):
-                </div>
-                <pre class="font-mono text-base md:text-lg text-cyan-300 leading-tight">
+                let html = `
+                    <div class="text-xs text-slate-400 mb-2 border-b border-slate-800 pb-1">
+                        Positional Column Alignment (Base ${base}):
+                    </div>
+                    <pre class="font-mono text-base md:text-lg text-cyan-300 leading-tight">
   ${padStr(op1, maxLen)}
 <span class="text-amber-400">${op}</span> ${padStr(op2, maxLen - 2)}
 <span class="text-slate-500">${'─'.repeat(maxLen + 2)}</span>
 <span class="text-emerald-400 font-extrabold">  ${padStr(resultStr, maxLen)}</span>
-                </pre>
+                    </pre>
+                `;
+                twoLayerArithmeticBox.innerHTML = html;
+                return;
+            }
+
+            const clean1 = op1.trim().toUpperCase();
+            const clean2 = op2.trim().toUpperCase();
+            const parts1 = clean1.split('.');
+            const parts2 = clean2.split('.');
+            const fracLen1 = parts1[1] ? parts1[1].length : 0;
+            const fracLen2 = parts2[1] ? parts2[1].length : 0;
+            const decimalShift = fracLen1 + fracLen2;
+
+            // Remove radix points so multiplication is performed digit-by-digit.
+            const digits1 = (parts1[0] || '0') + (parts1[1] || '');
+            const digits2 = (parts2[0] || '0') + (parts2[1] || '');
+
+            const digitValue = ch => RADIX_CHARS.indexOf(ch);
+            const digitChar = n => RADIX_CHARS[n];
+
+            // Build each partial product in the selected base.
+            const partialProducts = [];
+            for (let i = digits2.length - 1; i >= 0; i--) {
+                const multiplierDigit = digitValue(digits2[i]);
+                let carry = 0;
+                let row = '';
+
+                for (let j = digits1.length - 1; j >= 0; j--) {
+                    const product = digitValue(digits1[j]) * multiplierDigit + carry;
+                    row = digitChar(product % base) + row;
+                    carry = Math.floor(product / base);
+                }
+                if (carry > 0) row = digitChar(carry) + row;
+                row = row.replace(/^0+(?=.)/, '');
+                if (!row) row = '0';
+
+                const shift = digits2.length - 1 - i;
+                partialProducts.push({
+                    multiplier: digits2[i],
+                    value: row,
+                    shift,
+                    display: row + ' '.repeat(shift)
+                });
+            }
+
+            // Add partial products in decimal internally, then encode the sum back to the selected base.
+            const v1 = parseToDecimal(clean1, base);
+            const v2 = parseToDecimal(clean2, base);
+            const decimalProduct = v1 * v2;
+            const integerProductDisplay = decimalToTargetBase(decimalProduct, base, Math.max(8, parseInt(precisionSelect.value) || 8));
+
+            // For the vertical matrix, use the exact digit-string multiplication result.
+            const maxWidth = Math.max(
+                digits1.length,
+                digits2.length + 1,
+                ...partialProducts.map(p => p.display.length),
+                integerProductDisplay.length
+            ) + 2;
+            const pad = value => String(value).padStart(maxWidth, ' ');
+
+            let partialRows = '';
+            partialProducts.forEach((p, idx) => {
+                partialRows += `<div class="text-slate-300 whitespace-pre font-mono">${pad(p.display)}</div>`;
+            });
+
+            const hasMultipleRows = partialProducts.length > 1;
+            const separator = '─'.repeat(maxWidth);
+
+            // Show the fractional placement explicitly when operands contain decimal points.
+            const decimalNote = decimalShift > 0
+                ? `<div class="mt-2 text-xs text-slate-400">Decimal places: ${fracLen1} + ${fracLen2} = <span class="text-amber-300 font-bold">${decimalShift}</span>; place the radix point ${decimalShift} position(s) from the right.</div>`
+                : '';
+
+            let html = `
+                <div class="text-xs text-slate-400 mb-2 border-b border-slate-800 pb-1">
+                    Base-${base} Multiplication — Partial Products and Addition
+                </div>
+
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 overflow-x-auto">
+                    <div class="font-mono text-base md:text-lg leading-relaxed whitespace-nowrap text-right min-w-max">
+                        <div class="text-cyan-300">${pad(digits1)}</div>
+                        <div><span class="text-amber-400">×</span> <span class="text-cyan-300">${digits2.padStart(maxWidth - 2, ' ')}</span></div>
+                        <div class="text-slate-500">${separator}</div>
+                        ${partialRows}
+                        ${hasMultipleRows ? `<div class="text-slate-500 mt-1">${separator}</div>` : ''}
+                        <div class="text-emerald-400 font-extrabold">${pad(integerProductDisplay.replace('.', ''))}</div>
+                    </div>
+
+                    ${decimalNote}
+
+                    <div class="mt-4 pt-3 border-t border-cyan-500/30">
+                        <div class="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2">Added Partial Products</div>
+                        <div class="font-mono text-base md:text-lg leading-relaxed whitespace-nowrap text-right overflow-x-auto">
+                            ${partialProducts.map((p, idx) => `
+                                <div class="text-slate-300">${idx > 0 ? '<span class="text-amber-400">+ </span>' : '<span>  </span>'}${pad(p.display)}</div>
+                            `).join('')}
+                            <div class="text-slate-500">${separator}</div>
+                            <div class="text-emerald-400 font-extrabold">${pad(integerProductDisplay.replace('.', ''))}</div>
+                        </div>
+                        <div class="text-xs text-slate-500 mt-2">The partial products above are added vertically to obtain the final multiplication result.</div>
+                    </div>
+                </div>
+
+                <div class="mt-3 text-xs text-slate-400 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                    <span class="text-cyan-300 font-bold">Multiplication:</span>
+                    multiply each digit of the bottom operand by the top operand, shift each partial product one base-position to the left, then add all partial products.
+                </div>
             `;
 
             twoLayerArithmeticBox.innerHTML = html;
